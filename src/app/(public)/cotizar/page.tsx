@@ -2,55 +2,43 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCarrito } from "@/context/CarritoContext";
-import { supabase } from "@/lib/supabase";
 
 export default function CotizarPage() {
   const { items, borrarTodo, total } = useCarrito();
   const [notas, setNotas] = useState("");
+  const [enviando, setEnviando] = useState(false);
   const router = useRouter();
 
   const manejarCotizacion = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEnviando(true);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const usuarioId = userData.user?.id;
+    // El precio y el total NO se mandan acá: la API los recalcula del
+    // lado del servidor a partir de varianteId + cantidad, así nadie
+    // puede modificar el total interceptando la petición.
+    const respuesta = await fetch("/api/ordenes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((item) => ({
+          varianteId: item.varianteId,
+          cantidad: item.cantidad,
+        })),
+        notas,
+        status: "cotizacion",
+      }),
+    });
 
-    if (!usuarioId) {
-      alert("Debes iniciar sesión para cotizar");
+    setEnviando(false);
+
+    if (respuesta.status === 401) {
+      alert("Debés iniciar sesión para cotizar");
       router.push("/login");
       return;
     }
 
-    const { data: orden, error } = await supabase
-      .from("ordenes")
-      .insert({
-        usuario_id: usuarioId,
-        status: "cotizacion",
-        total,
-        notas,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      alert("Error al crear la cotización");
-      return;
-    }
-
-    const itemsParaInsertar = items.map((item) => ({
-      orden_id: orden.id,
-      variante_id: item.varianteId,
-      cantidad: item.cantidad,
-      precio_unitario: item.precioUnitario,
-      total: item.total,
-    }));
-
-    const { error: errorItems } = await supabase
-      .from("items_orden")
-      .insert(itemsParaInsertar);
-
-    if (errorItems) {
-      alert("Error al insertar los items");
+    if (!respuesta.ok) {
+      alert("Error al enviar la cotización");
       return;
     }
 
@@ -87,8 +75,11 @@ export default function CotizarPage() {
             </tbody>
           </table>
           <div className="mt-4 text-right font-bold text-xl">
-            Total: ${total}
+            Total estimado: ${total}
           </div>
+          <p className="text-right text-xs text-gray-500 mt-1">
+            El total final se calcula y confirma en el servidor al enviar.
+          </p>
         </div>
 
         <div>
@@ -103,9 +94,10 @@ export default function CotizarPage() {
 
         <button
           type="submit"
-          className="bg-yellow-400 text-black font-bold p-2 rounded w-full"
+          disabled={enviando}
+          className="bg-yellow-400 text-black font-bold p-2 rounded w-full disabled:opacity-50"
         >
-          Enviar Cotización
+          {enviando ? "Enviando..." : "Enviar Cotización"}
         </button>
       </form>
     </div>

@@ -1,122 +1,158 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
+interface Producto {
+  id: string;
+  nombre: string;
+}
+
+interface Variante {
+  id: string;
+  producto_id: string;
+  atributos: Record<string, string>;
+  precio_publico: number;
+  precio_mayorista: number;
+}
+
+interface ItemOrden {
+  id: string;
+  variante_id: string;
+  precio_unitario: number;
+  cantidad: number;
+  total: number;
+}
+
+interface Orden {
+  id: string;
+  status: string;
+  total: number;
+  created_at: string;
+  profiles?: { email: string } | null;
+  items_orden?: ItemOrden[];
+}
+
+interface ItemFormulario {
+  varianteId: string;
+  nombre: string;
+  cantidad: number;
+  // Precio mostrado en la tabla del formulario: es solo referencia visual
+  // (viene de variantes_producto, que el admin sí puede leer). El precio
+  // que efectivamente se guarda lo recalcula /api/ordenes en el servidor.
+  precioReferencia: number;
+}
+
 export default function AdminOrdenesPage() {
   const router = useRouter();
-  const [ordenes, setOrdenes] = useState<any[]>([]);
-  const [productos, setProductos] = useState<any[]>([]);
-  const [variantes, setVariantes] = useState<any[]>([]);
+  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [variantes, setVariantes] = useState<Variante[]>([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState("");
   const [varianteSeleccionada, setVarianteSeleccionada] = useState("");
   const [cantidad, setCantidad] = useState(1);
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<ItemFormulario[]>([]);
   const [notas, setNotas] = useState("");
-  const [total, setTotal] = useState(0);
+  const [enviando, setEnviando] = useState(false);
 
-  useEffect(() => {
-    cargarOrdenes();
-    cargarProductos();
-  }, []);
-
-  const cargarOrdenes = async () => {
+  const cargarOrdenes = useCallback(async () => {
     const { data } = await supabase
       .from("ordenes")
       .select("*, items_orden(*), profiles(*)")
       .order("created_at", { ascending: false });
-    setOrdenes(data || []);
-  };
+    setOrdenes(data ?? []);
+  }, []);
 
-  const cargarProductos = async () => {
+  const cargarProductos = useCallback(async () => {
     const { data } = await supabase
       .from("productos")
       .select("*")
       .eq("is_active", true);
-    setProductos(data || []);
-  };
+    setProductos(data ?? []);
+  }, []);
+
+  useEffect(() => {
+    const cargarInicial = async () => {
+      await Promise.all([cargarOrdenes(), cargarProductos()]);
+    };
+    cargarInicial();
+  }, [cargarOrdenes, cargarProductos]);
 
   const cargarVariantes = async (productoId: string) => {
+    // Esta consulta a variantes_producto (con ambos precios) solo funciona
+    // porque este panel está protegido para admin — la RLS
+    // "variantes_select_solo_admin" la bloquea para cualquier otro rol.
     const { data } = await supabase
       .from("variantes_producto")
       .select("*")
       .eq("producto_id", productoId)
       .eq("is_active", true);
-    setVariantes(data || []);
+    setVariantes(data ?? []);
     setVarianteSeleccionada("");
   };
+
+  const totalReferencia = items.reduce(
+    (acc, item) => acc + item.precioReferencia * item.cantidad,
+    0,
+  );
 
   const agregarItem = () => {
     const variante = variantes.find((v) => v.id === varianteSeleccionada);
     if (!variante) return;
 
-    const nuevoItem = {
-      variante_id: variante.id,
-      nombre: `${productos.find((p) => p.id === variante.producto_id)?.nombre} - ${JSON.stringify(variante.atributos)}`,
+    const nuevoItem: ItemFormulario = {
+      varianteId: variante.id,
+      nombre: `${
+        productos.find((p) => p.id === variante.producto_id)?.nombre ?? ""
+      } - ${JSON.stringify(variante.atributos)}`,
       cantidad,
-      precio_unitario: variante.precio_publico,
-      total: cantidad * variante.precio_publico,
+      precioReferencia: variante.precio_publico,
     };
 
     setItems([...items, nuevoItem]);
-    setTotal(total + nuevoItem.total);
     setCantidad(1);
     setVarianteSeleccionada("");
   };
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEnviando(true);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const usuarioId = userData.user?.id;
-
-    const { data: orden, error } = await supabase
-      .from("ordenes")
-      .insert({
-        usuario_id: usuarioId,
-        status: "borrador",
-        total,
+    const respuesta = await fetch("/api/ordenes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((item) => ({
+          varianteId: item.varianteId,
+          cantidad: item.cantidad,
+        })),
         notas,
-      })
-      .select()
-      .single();
+        status: "borrador",
+      }),
+    });
 
-    if (error) {
+    setEnviando(false);
+
+    if (!respuesta.ok) {
       alert("Error al crear la orden");
-      return;
-    }
-
-    const itemsParaInsertar = items.map((item) => ({
-      orden_id: orden.id,
-      variante_id: item.variante_id,
-      cantidad: item.cantidad,
-      precio_unitario: item.precio_unitario,
-      total: item.total,
-    }));
-
-    const { error: errorItems } = await supabase
-      .from("items_orden")
-      .insert(itemsParaInsertar);
-
-    if (errorItems) {
-      alert("Error al insertar los items");
       return;
     }
 
     alert("Orden de trabajo generada correctamente");
     setItems([]);
-    setTotal(0);
     setNotas("");
+    cargarOrdenes();
     router.refresh();
   };
 
   const manejarEstado = async (ordenId: string, estado: string) => {
-    const { error } = await supabase
-      .from("ordenes")
-      .update({ status: estado })
-      .eq("id", ordenId);
+    const respuesta = await fetch(`/api/ordenes/${ordenId}/estado`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado }),
+    });
 
-    if (error) {
+    if (!respuesta.ok) {
       alert("Error al cambiar estado");
       return;
     }
@@ -132,7 +168,7 @@ export default function AdminOrdenesPage() {
       </h2>
 
       <div className="mb-8">
-        {ordenes?.map((orden: any) => (
+        {ordenes.map((orden) => (
           <div key={orden.id} className="border rounded p-4 mb-4">
             <div className="flex justify-between items-center">
               <div>
@@ -179,7 +215,7 @@ export default function AdminOrdenesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orden.items_orden?.map((item: any) => (
+                  {orden.items_orden?.map((item) => (
                     <tr key={item.id} className="border-b">
                       <td className="py-2">{item.variante_id}</td>
                       <td>${item.precio_unitario}</td>
@@ -195,7 +231,7 @@ export default function AdminOrdenesPage() {
             </div>
           </div>
         ))}
-        {ordenes?.length === 0 && (
+        {ordenes.length === 0 && (
           <div className="text-gray-500">No hay órdenes.</div>
         )}
       </div>
@@ -267,25 +303,28 @@ export default function AdminOrdenesPage() {
               <thead>
                 <tr className="border-b">
                   <th className="py-2">Producto</th>
-                  <th>Precio</th>
+                  <th>Precio ref.</th>
                   <th>Cantidad</th>
-                  <th>Total</th>
+                  <th>Total ref.</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, index) => (
                   <tr key={index} className="border-b">
                     <td className="py-2">{item.nombre}</td>
-                    <td>${item.precio_unitario}</td>
+                    <td>${item.precioReferencia}</td>
                     <td>{item.cantidad}</td>
-                    <td>${item.total}</td>
+                    <td>${item.precioReferencia * item.cantidad}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <div className="mt-4 text-right font-bold text-xl">
-              Total: ${total}
+              Total referencial: ${totalReferencia}
             </div>
+            <p className="text-right text-xs text-gray-500 mt-1">
+              El total definitivo se recalcula en el servidor al generar la orden.
+            </p>
           </div>
 
           <div>
@@ -300,9 +339,10 @@ export default function AdminOrdenesPage() {
 
           <button
             type="submit"
-            className="bg-yellow-400 text-black font-bold p-2 rounded w-full"
+            disabled={enviando || items.length === 0}
+            className="bg-yellow-400 text-black font-bold p-2 rounded w-full disabled:opacity-50"
           >
-            Generar Orden
+            {enviando ? "Generando..." : "Generar Orden"}
           </button>
         </form>
       </div>
