@@ -12,12 +12,16 @@ export default function RegisterPage() {
   const manejarRegistro = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Importante: esto NO asigna el rol. `rol_solicitado` solo queda
+    // registrado como pedido — el trigger de la base de datos crea el
+    // perfil con rol real "cliente" siempre, y si se pidió "mayorista"
+    // lo deja pendiente de aprobación manual por un admin.
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          rol,
+          rol_solicitado: rol,
         },
       },
     });
@@ -25,6 +29,12 @@ export default function RegisterPage() {
     if (error) {
       alert("Error al registrarse");
       return;
+    }
+
+    if (rol === "mayorista") {
+      alert(
+        "Cuenta creada. Tu acceso mayorista queda pendiente de aprobación — te avisamos cuando esté habilitado.",
+      );
     }
 
     router.push("/login");

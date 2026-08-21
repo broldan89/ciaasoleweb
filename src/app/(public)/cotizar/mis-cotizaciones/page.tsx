@@ -3,9 +3,25 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
+interface ItemOrden {
+  id: string;
+  variante_id: string;
+  precio_unitario: number;
+  cantidad: number;
+  total: number;
+}
+
+interface Orden {
+  id: string;
+  status: string;
+  total: number;
+  created_at: string;
+  items_orden?: ItemOrden[];
+}
+
 export default function MisCotizacionesPage() {
   const router = useRouter();
-  const [ordenes, setOrdenes] = useState<any[]>([]);
+  const [ordenes, setOrdenes] = useState<Orden[]>([]);
 
   useEffect(() => {
     const cargar = async () => {
@@ -33,7 +49,7 @@ export default function MisCotizacionesPage() {
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Mis Cotizaciones</h1>
       <div className="space-y-6">
-        {ordenes?.map((orden: any) => (
+        {ordenes.map((orden) => (
           <div key={orden.id} className="border rounded p-4">
             <div className="flex justify-between items-center mb-4">
               <span className="font-bold">
@@ -65,7 +81,7 @@ export default function MisCotizacionesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orden.items_orden?.map((item: any) => (
+                    {orden.items_orden?.map((item) => (
                       <tr key={item.id} className="border-b">
                         <td className="py-2">{item.variante_id}</td>
                         <td>${item.precio_unitario}</td>
@@ -82,7 +98,7 @@ export default function MisCotizacionesPage() {
             </div>
           </div>
         ))}
-        {ordenes?.length === 0 && (
+        {ordenes.length === 0 && (
           <div className="text-gray-500">No hay cotizaciones.</div>
         )}
       </div>
