@@ -11,21 +11,36 @@ export default function Navbar() {
   const router = useRouter();
   const { items } = useCarrito();
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [rol, setRol] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setUsuario(data.user);
+      if (!data.user) {
+        setRol(null);
+        return;
+      }
+      // El rol real vive en `profiles`, no en user_metadata (ese campo lo
+      // puede editar el propio usuario desde el navegador). RLS permite
+      // que cada usuario lea únicamente su propia fila acá.
+      const { data: perfil } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+      setRol(perfil?.role ?? null);
     });
   }, []);
 
   const manejarCerrarSesion = async () => {
     await supabase.auth.signOut();
     setUsuario(null);
+    setRol(null);
     router.push("/");
   };
 
-  const esAdmin = usuario?.user_metadata?.rol === "admin";
-  const esMayorista = usuario?.user_metadata?.rol === "mayorista";
+  const esAdmin = rol === "admin";
+  const esMayorista = rol === "mayorista";
 
   return (
     <div className="bg-black text-white px-6 py-4 flex items-center justify-between shadow-lg">

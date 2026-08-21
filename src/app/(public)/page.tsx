@@ -28,10 +28,10 @@ export default async function HomePage() {
   if (user) {
     const { data: perfil } = await supabase
       .from("profiles")
-      .select("rol")
+      .select("role")
       .eq("id", user.id)
       .single();
-    esMayorista = perfil?.rol === "mayorista" || perfil?.rol === "admin";
+    esMayorista = perfil?.role === "mayorista" || perfil?.role === "admin";
   }
 
   // variantes_publico es una vista que solo expone precio_publico —

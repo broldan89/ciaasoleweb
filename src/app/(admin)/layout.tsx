@@ -21,11 +21,11 @@ export default async function AdminLayout({
   // permitía antes autoasignarse un rol desde el navegador).
   const { data: perfil } = await supabase
     .from("profiles")
-    .select("rol")
+    .select("role")
     .eq("id", user.id)
     .single();
 
-  if (perfil?.rol !== "admin") {
+  if (perfil?.role !== "admin") {
     redirect("/");
   }
 
