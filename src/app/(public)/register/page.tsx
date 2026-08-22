@@ -27,7 +27,11 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      alert("Error al registrarse");
+      // Mostramos el mensaje real (temporalmente) para poder diagnosticar
+      // el error de la base de datos. En producción esto conviene volverlo
+      // a un mensaje genérico una vez resuelto.
+      alert(`Error al registrarse: ${error.message}`);
+      console.error("Error de registro:", error);
       return;
     }
 
