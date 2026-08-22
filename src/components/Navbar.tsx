@@ -13,23 +13,41 @@ export default function Navbar() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [rol, setRol] = useState<string | null>(null);
 
+  const cargarPerfil = async (usuarioId: string) => {
+    // El rol real vive en `profiles`, no en user_metadata (ese campo lo
+    // puede editar el propio usuario desde el navegador). RLS permite
+    // que cada usuario lea únicamente su propia fila acá.
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", usuarioId)
+      .single();
+    setRol(perfil?.role ?? null);
+  };
+
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
+    supabase.auth.getUser().then(({ data }) => {
       setUsuario(data.user);
-      if (!data.user) {
-        setRol(null);
-        return;
-      }
-      // El rol real vive en `profiles`, no en user_metadata (ese campo lo
-      // puede editar el propio usuario desde el navegador). RLS permite
-      // que cada usuario lea únicamente su propia fila acá.
-      const { data: perfil } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-      setRol(perfil?.role ?? null);
+      if (data.user) cargarPerfil(data.user.id);
     });
+
+    // Antes solo se chequeaba la sesión una vez al montar el componente.
+    // Como el login navega con router.push (sin recargar la página), el
+    // navbar se quedaba mostrando "Login/Registrarse" aunque el login
+    // hubiera funcionado. Este listener reacciona a cada cambio real de
+    // sesión (login, logout, refresh de token).
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUsuario(session?.user ?? null);
+      if (session?.user) {
+        cargarPerfil(session.user.id);
+      } else {
+        setRol(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const manejarCerrarSesion = async () => {
@@ -65,8 +83,8 @@ export default function Navbar() {
 
         {usuario && (
           <Link
-            href="/mis-cotizaciones"
-            className={`hover:text-yellow-400 transition-colors ${pathname === "/mis-cotizaciones" ? "text-yellow-400" : ""}`}
+            href="/cotizar/mis-cotizaciones"
+            className={`hover:text-yellow-400 transition-colors ${pathname === "/cotizar/mis-cotizaciones" ? "text-yellow-400" : ""}`}
           >
             Mis Cotizaciones
           </Link>
