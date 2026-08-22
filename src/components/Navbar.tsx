@@ -104,7 +104,7 @@ export default function Navbar() {
         {usuario ? (
           <>
             <span className="text-sm text-gray-400">
-              {esMayorista ? "Mayorista" : "Cliente"}
+              {esAdmin ? "Admin" : esMayorista ? "Mayorista" : "Cliente"}
             </span>
             <button
               onClick={manejarCerrarSesion}
