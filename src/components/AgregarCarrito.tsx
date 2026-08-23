@@ -1,4 +1,5 @@
 "use client";
+
 import { useCarrito } from "@/context/CarritoContext";
 
 export default function AgregarCarrito({
@@ -14,18 +15,19 @@ export default function AgregarCarrito({
 
   const handleAgregar = () => {
     agregarItem({
-      varianteId: varianteId,
-      nombre: nombre,
+      varianteId,
+      nombre,
       cantidad: 1,
       precioUnitario: precio,
-      total: precio, // O calculado según tu lógica (precio * cantidad)
+      total: precio,
     });
   };
 
   return (
     <button
+      type="button"
       onClick={handleAgregar}
-      className="px-4 py-1.5 text-sm font-medium text-white bg-stone-900 hover:bg-stone-700 transition-colors duration-200 rounded-none"
+      className="inline-flex min-h-10 items-center justify-center border border-[var(--cs-ink)] bg-[var(--cs-ink)] px-4 text-[10px] font-bold uppercase tracking-[.12em] text-white transition-colors hover:border-[var(--cs-gold-dark)] hover:bg-[var(--cs-gold-dark)]"
     >
       Agregar
     </button>
