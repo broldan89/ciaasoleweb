@@ -1,8 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-// --- 1. COMPONENTE DEL MODAL ---
+type Tab = "todas" | "en proceso" | "aprobadas";
+
+type Order = {
+  id: string;
+  client: string;
+  status: "Aprobada" | "En proceso";
+  product: string;
+  variant: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+  date: string;
+};
+
+const ORDERS: Order[] = [
+  {
+    id: "110ECB98",
+    client: "roldanbrian.data@gmail.com",
+    status: "Aprobada",
+    product: "Sistema Roller Double",
+    variant: "Tela Screen 3% White",
+    unitPrice: 98,
+    quantity: 12,
+    subtotal: 1176,
+    date: "22/08/2026",
+  },
+];
+
+const currency = new Intl.NumberFormat("es-AR", {
+  maximumFractionDigits: 0,
+});
+
+function StatusBadge({ status }: { status: Order["status"] }) {
+  const approved = status === "Aprobada";
+
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1",
+        "text-[10px] font-medium uppercase tracking-[0.14em]",
+        approved
+          ? "border-[#c9b27c]/40 bg-[#f5f0e4] text-[#8a6b2f]"
+          : "border-[#d8d1c5] bg-[#f7f5f1] text-[#6e675d]",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "h-1.5 w-1.5 rounded-full",
+          approved ? "bg-[#b08a3c]" : "bg-[#8a8378]",
+        ].join(" ")}
+      />
+      {status}
+    </span>
+  );
+}
+
 function NuevaOrdenModal({
   isOpen,
   onClose,
@@ -22,279 +77,164 @@ function NuevaOrdenModal({
 
   if (!isOpen) return null;
 
-  const BRAND = {
-    yellow: "#F5A623",
-    darkBg: "#0C0C0D",
-    cardBg: "#141416",
-    inputBg: "#1C1C1F",
-    border: "#242428",
-    textPrimary: "#F4F4F5",
-    textMuted: "#8E8E93",
-  };
-
-  const inputStyle = {
-    width: "100%",
-    backgroundColor: BRAND.inputBg,
-    border: `1px solid ${BRAND.border}`,
-    color: BRAND.textPrimary,
-    padding: "0.6rem 0.8rem",
-    fontSize: "12px",
-    outline: "none",
-    boxSizing: "border-box" as const,
-  };
-
-  const labelStyle = {
-    fontSize: "9px",
-    fontFamily: "monospace",
-    color: BRAND.textMuted,
-    textTransform: "uppercase" as const,
-    display: "block",
-    marginBottom: "0.4rem",
-    letterSpacing: "0.1em",
+  const update = <K extends keyof typeof formData>(
+    key: K,
+    value: (typeof formData)[K],
+  ) => {
+    setFormData((current) => ({ ...current, [key]: value }));
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        backgroundColor: "rgba(0,0,0,0.8)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-        padding: "1rem",
-      }}
-    >
-      <div
-        style={{
-          backgroundColor: BRAND.cardBg,
-          border: `1px solid ${BRAND.border}`,
-          width: "100%",
-          maxWidth: "540px",
-          padding: "2rem",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
-        }}
-      >
-        {/* Header Modal */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: "1.5rem",
-            borderBottom: `1px solid ${BRAND.border}`,
-            paddingBottom: "1rem",
-          }}
-        >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211f1b]/45 p-4 backdrop-blur-[3px]">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2px] border border-[#ddd7cc] bg-[#fbfaf7] shadow-[0_30px_80px_rgba(33,31,27,0.18)]">
+        <div className="flex items-start justify-between border-b border-[#e4dfd6] px-7 py-6">
           <div>
-            <span
-              style={{
-                fontSize: "9px",
-                fontFamily: "monospace",
-                color: BRAND.yellow,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                display: "block",
-                marginBottom: "0.2rem",
-              }}
-            >
-              CONFIRMACIÓN DE CONFECCIÓN
-            </span>
-            <h3
-              style={{
-                fontSize: "1.25rem",
-                fontWeight: "300",
-                color: BRAND.textPrimary,
-                margin: 0,
-              }}
-            >
-              Ingresar Nueva Orden
-            </h3>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#a17b35]">
+              Nueva orden
+            </p>
+            <h2 className="font-serif text-2xl font-normal tracking-[-0.02em] text-[#24221f]">
+              Ingresar orden de trabajo
+            </h2>
+            <p className="mt-2 text-sm text-[#777067]">
+              Completar los datos comerciales y técnicos de la orden.
+            </p>
           </div>
+
           <button
+            type="button"
             onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: BRAND.textMuted,
-              fontSize: "1.2rem",
-              cursor: "pointer",
-              padding: "0 0.5rem",
-            }}
+            aria-label="Cerrar"
+            className="text-2xl font-light leading-none text-[#8b847a] transition hover:text-[#24221f]"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* Formulario */}
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
+          onSubmit={(event) => {
+            event.preventDefault();
             onClose();
           }}
-          style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}
+          className="space-y-6 px-7 py-7"
         >
           <div>
-            <label style={labelStyle}>Email o Nombre del Cliente</label>
+            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777067]">
+              Email o nombre del cliente
+            </label>
             <input
               type="email"
               required
-              placeholder="ejemplo@estudio.com"
               value={formData.clienteEmail}
-              onChange={(e) =>
-                setFormData({ ...formData, clienteEmail: e.target.value })
-              }
-              style={inputStyle}
+              onChange={(event) => update("clienteEmail", event.target.value)}
+              placeholder="ejemplo@estudio.com"
+              className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm text-[#24221f] outline-none transition placeholder:text-[#aaa39a] focus:border-[#b08a3c]"
             />
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1rem",
-            }}
-          >
+          <div className="grid gap-5 md:grid-cols-2">
             <div>
-              <label style={labelStyle}>Sistema de Cortinado</label>
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777067]">
+                Sistema de cortinado
+              </label>
               <select
                 value={formData.sistema}
-                onChange={(e) =>
-                  setFormData({ ...formData, sistema: e.target.value })
-                }
-                style={{ ...inputStyle, cursor: "pointer" }}
+                onChange={(event) => update("sistema", event.target.value)}
+                className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm text-[#24221f] outline-none focus:border-[#b08a3c]"
               >
-                <option value="Roller Individual">Roller Individual</option>
-                <option value="Roller Doble">Roller Doble</option>
-                <option value="Banda Vertical">Banda Vertical</option>
-                <option value="Panel Oriental">Panel Oriental</option>
+                <option>Roller Individual</option>
+                <option>Roller Doble</option>
+                <option>Banda Vertical</option>
+                <option>Panel Oriental</option>
               </select>
             </div>
 
             <div>
-              <label style={labelStyle}>Colección de Tela</label>
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777067]">
+                Colección de tela
+              </label>
               <select
                 value={formData.tela}
-                onChange={(e) =>
-                  setFormData({ ...formData, tela: e.target.value })
-                }
-                style={{ ...inputStyle, cursor: "pointer" }}
+                onChange={(event) => update("tela", event.target.value)}
+                className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm text-[#24221f] outline-none focus:border-[#b08a3c]"
               >
-                <option value="Screen 3% White">Screen 3% White</option>
-                <option value="Screen 5% Charcoal">Screen 5% Charcoal</option>
-                <option value="Blackout Premium">Blackout Premium</option>
-                <option value="Sunscreen Linen">Sunscreen Linen</option>
+                <option>Screen 3% White</option>
+                <option>Screen 5% Charcoal</option>
+                <option>Blackout Premium</option>
+                <option>Sunscreen Linen</option>
               </select>
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: "1rem",
-            }}
-          >
+          <div className="grid gap-5 sm:grid-cols-3">
             <div>
-              <label style={labelStyle}>Ancho (cm)</label>
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777067]">
+                Ancho (cm)
+              </label>
               <input
                 type="number"
-                placeholder="180"
                 value={formData.ancho}
-                onChange={(e) =>
-                  setFormData({ ...formData, ancho: e.target.value })
-                }
-                style={inputStyle}
+                onChange={(event) => update("ancho", event.target.value)}
+                placeholder="180"
+                className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm outline-none focus:border-[#b08a3c]"
               />
             </div>
 
             <div>
-              <label style={labelStyle}>Alto (cm)</label>
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777067]">
+                Alto (cm)
+              </label>
               <input
                 type="number"
-                placeholder="220"
                 value={formData.alto}
-                onChange={(e) =>
-                  setFormData({ ...formData, alto: e.target.value })
-                }
-                style={inputStyle}
+                onChange={(event) => update("alto", event.target.value)}
+                placeholder="220"
+                className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm outline-none focus:border-[#b08a3c]"
               />
             </div>
 
             <div>
-              <label style={labelStyle}>Cantidad</label>
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777067]">
+                Cantidad
+              </label>
               <input
                 type="number"
                 min="1"
                 value={formData.cantidad}
-                onChange={(e) =>
-                  setFormData({ ...formData, cantidad: Number(e.target.value) })
+                onChange={(event) =>
+                  update("cantidad", Number(event.target.value) || 1)
                 }
-                style={inputStyle}
+                className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm outline-none focus:border-[#b08a3c]"
               />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>Precio Unitario (USD / ARS)</label>
+            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#777067]">
+              Precio unitario
+            </label>
             <input
               type="number"
-              placeholder="98"
               value={formData.precioUnitario}
-              onChange={(e) =>
-                setFormData({ ...formData, precioUnitario: e.target.value })
-              }
-              style={inputStyle}
+              onChange={(event) => update("precioUnitario", event.target.value)}
+              placeholder="98"
+              className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm outline-none focus:border-[#b08a3c]"
             />
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "1rem",
-              marginTop: "1rem",
-              paddingTop: "1rem",
-              borderTop: `1px solid ${BRAND.border}`,
-            }}
-          >
+          <div className="flex flex-col-reverse gap-3 border-t border-[#e4dfd6] pt-6 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              style={{
-                backgroundColor: "transparent",
-                border: `1px solid ${BRAND.border}`,
-                color: BRAND.textMuted,
-                padding: "0.6rem 1.2rem",
-                fontSize: "11px",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-              }}
+              className="border border-[#d0c9be] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#625c54] transition hover:border-[#aaa196] hover:bg-white"
             >
               Cancelar
             </button>
 
             <button
               type="submit"
-              style={{
-                backgroundColor: BRAND.yellow,
-                border: "none",
-                color: "#000000",
-                padding: "0.6rem 1.4rem",
-                fontSize: "11px",
-                fontWeight: "700",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-              }}
+              className="bg-[#b08a3c] px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#98752f]"
             >
-              Crear Orden
+              Crear orden
             </button>
           </div>
         </form>
@@ -303,403 +243,207 @@ function NuevaOrdenModal({
   );
 }
 
-// --- 2. VISTA PRINCIPAL DE ÓRDENES ---
 export default function OrdenesCiaoSolePage() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [tabActiva, setTabActiva] = useState("todas");
+  const [tabActiva, setTabActiva] = useState<Tab>("todas");
+  const [search, setSearch] = useState("");
 
-  const BRAND = {
-    yellow: "#F5A623",
-    darkBg: "#0C0C0D",
-    cardBg: "#141416",
-    border: "#242428",
-    textPrimary: "#F4F4F5",
-    textMuted: "#8E8E93",
-  };
+  const filteredOrders = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return ORDERS.filter((order) => {
+      const matchesSearch =
+        !query ||
+        order.id.toLowerCase().includes(query) ||
+        order.client.toLowerCase().includes(query) ||
+        order.product.toLowerCase().includes(query) ||
+        order.variant.toLowerCase().includes(query);
+
+      const matchesTab =
+        tabActiva === "todas" ||
+        (tabActiva === "aprobadas" && order.status === "Aprobada") ||
+        (tabActiva === "en proceso" && order.status === "En proceso");
+
+      return matchesSearch && matchesTab;
+    });
+  }, [search, tabActiva]);
 
   return (
-    <div
-      style={{
-        backgroundColor: BRAND.darkBg,
-        color: BRAND.textPrimary,
-        minHeight: "100vh",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        padding: "2rem",
-      }}
-    >
-      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-        {/* Header con Identidad Ciao Sole */}
-        <header
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            paddingBottom: "1.5rem",
-            borderBottom: `1px solid ${BRAND.border}`,
-            marginBottom: "2rem",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                marginBottom: "0.4rem",
-              }}
-            >
-              <span
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  backgroundColor: BRAND.yellow,
-                  display: "inline-block",
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontFamily: "monospace",
-                  letterSpacing: "0.25em",
-                  color: BRAND.yellow,
-                  textTransform: "uppercase",
-                }}
-              >
-                CIAO SOLE · CORTINADOS & CONTROL SOLAR
-              </span>
-            </div>
-            <h1
-              style={{
-                fontSize: "1.75rem",
-                fontWeight: "300",
-                color: BRAND.textPrimary,
-                margin: 0,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Cotizaciones y Órdenes de Trabajo
-            </h1>
-          </div>
+    <>
+      <main className="min-h-full bg-[#f7f5f0] px-5 py-8 text-[#24221f] sm:px-8 lg:px-10">
+        <div className="mx-auto max-w-[1180px]">
+          <header className="border-b border-[#ddd7cc] pb-7">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.25em] text-[#a17b35]">
+                  Ciao Sole · Cortinados & Control Solar
+                </p>
 
-          <button
-            onClick={() => setModalOpen(true)}
-            style={{
-              backgroundColor: BRAND.yellow,
-              color: "#000000",
-              border: "none",
-              padding: "0.65rem 1.3rem",
-              fontSize: "11px",
-              fontWeight: "700",
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-            }}
-          >
-            + Nueva Orden
-          </button>
-        </header>
+                <h1 className="max-w-3xl font-serif text-3xl font-normal leading-tight tracking-[-0.025em] text-[#24221f] sm:text-4xl">
+                  Cotizaciones y órdenes de trabajo
+                </h1>
 
-        {/* Toolbar */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "2rem",
-            gap: "1rem",
-          }}
-        >
-          <div style={{ position: "relative", width: "320px" }}>
-            <input
-              type="text"
-              placeholder="Buscar por cliente, ref o ID..."
-              style={{
-                backgroundColor: BRAND.cardBg,
-                border: `1px solid ${BRAND.border}`,
-                color: BRAND.textPrimary,
-                padding: "0.55rem 1rem",
-                fontSize: "12px",
-                width: "100%",
-                outline: "none",
-              }}
-            />
-          </div>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[#777067]">
+                  Seguimiento comercial y operativo de cada proyecto.
+                </p>
+              </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: "1.5rem",
-              fontSize: "11px",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
-            {["todas", "en proceso", "aprobadas"].map((tab) => (
-              <span
-                key={tab}
-                onClick={() => setTabActiva(tab)}
-                style={{
-                  color:
-                    tabActiva === tab ? BRAND.textPrimary : BRAND.textMuted,
-                  borderBottom:
-                    tabActiva === tab
-                      ? `2px solid ${BRAND.yellow}`
-                      : "2px solid transparent",
-                  paddingBottom: "4px",
-                  cursor: "pointer",
-                  fontWeight: tabActiva === tab ? "600" : "400",
-                }}
-              >
-                {tab}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Ficha Técnica de la Orden */}
-        <article
-          style={{
-            backgroundColor: BRAND.cardBg,
-            border: `1px solid ${BRAND.border}`,
-            padding: "1.75rem",
-            marginBottom: "1.5rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingBottom: "1.25rem",
-              borderBottom: `1px solid ${BRAND.border}`,
-            }}
-          >
-            <div>
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontFamily: "monospace",
-                  color: BRAND.yellow,
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  fontWeight: "600",
-                }}
-              >
-                OT #110ECB98
-              </span>
-              <h2
-                style={{
-                  fontSize: "14px",
-                  color: BRAND.textPrimary,
-                  margin: "0.25rem 0 0 0",
-                  fontWeight: "400",
-                }}
-              >
-                roldanbrian.data@gmail.com
-              </h2>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontFamily: "monospace",
-                  textTransform: "uppercase",
-                  padding: "0.25rem 0.65rem",
-                  backgroundColor: "rgba(16, 185, 129, 0.1)",
-                  color: "#34d399",
-                  border: "1px solid rgba(16, 185, 129, 0.25)",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                Aprobada
-              </span>
               <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: BRAND.textMuted,
-                  fontSize: "11px",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  textUnderlineOffset: "4px",
-                }}
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="inline-flex w-fit items-center justify-center border border-[#b08a3c] bg-[#b08a3c] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.17em] text-white transition hover:bg-[#98752f]"
               >
-                Emitir Factura
+                + Nueva orden
               </button>
             </div>
-          </div>
+          </header>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "2.5fr 1fr 1fr 1fr",
-              gap: "1rem",
-              padding: "1.25rem 0",
-              borderBottom: `1px solid ${BRAND.border}`,
-              alignItems: "center",
-              fontSize: "12px",
-            }}
-          >
-            <div>
-              <span
-                style={{
-                  fontSize: "9px",
-                  fontFamily: "monospace",
-                  color: BRAND.textMuted,
-                  textTransform: "uppercase",
-                  display: "block",
-                  marginBottom: "0.3rem",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                Especificación / Variante
-              </span>
-              <div
-                style={{
-                  fontFamily: "monospace",
-                  color: BRAND.textPrimary,
-                  fontSize: "11px",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                110ecb98-d034-42c8-b823-260f7e586e24
+          <section className="py-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="w-full max-w-md">
+                <label className="sr-only" htmlFor="order-search">
+                  Buscar órdenes
+                </label>
+                <input
+                  id="order-search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar por cliente, referencia o producto..."
+                  className="w-full border border-[#d8d2c8] bg-white px-4 py-3 text-sm text-[#24221f] outline-none transition placeholder:text-[#aaa39a] focus:border-[#b08a3c]"
+                />
               </div>
-              <div
-                style={{
-                  color: BRAND.textMuted,
-                  fontSize: "11px",
-                  marginTop: "3px",
-                }}
-              >
-                Sistema Roller Double · Tela Screen 3% White
+
+              <nav className="flex flex-wrap items-center gap-5 border-b border-[#ded8ce] lg:border-0">
+                {(["todas", "en proceso", "aprobadas"] as Tab[]).map((tab) => {
+                  const active = tabActiva === tab;
+
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setTabActiva(tab)}
+                      className={[
+                        "relative pb-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition",
+                        active
+                          ? "text-[#24221f]"
+                          : "text-[#918a80] hover:text-[#5e5851]",
+                      ].join(" ")}
+                    >
+                      {tab}
+                      {active && (
+                        <span className="absolute inset-x-0 bottom-0 h-px bg-[#b08a3c]" />
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            {filteredOrders.length === 0 ? (
+              <div className="border border-dashed border-[#d4cec4] bg-[#fbfaf7] px-6 py-14 text-center">
+                <p className="font-serif text-xl text-[#34302b]">
+                  No se encontraron órdenes
+                </p>
+                <p className="mt-2 text-sm text-[#817a71]">
+                  Ajustá la búsqueda o seleccioná otro estado.
+                </p>
               </div>
-            </div>
-
-            <div style={{ textAlign: "center" }}>
-              <span
-                style={{
-                  fontSize: "9px",
-                  fontFamily: "monospace",
-                  color: BRAND.textMuted,
-                  textTransform: "uppercase",
-                  display: "block",
-                  marginBottom: "0.3rem",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                Precio Unit.
-              </span>
-              <span
-                style={{ fontFamily: "monospace", color: BRAND.textPrimary }}
-              >
-                $98
-              </span>
-            </div>
-
-            <div style={{ textAlign: "center" }}>
-              <span
-                style={{
-                  fontSize: "9px",
-                  fontFamily: "monospace",
-                  color: BRAND.textMuted,
-                  textTransform: "uppercase",
-                  display: "block",
-                  marginBottom: "0.3rem",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                Cantidad
-              </span>
-              <span
-                style={{ fontFamily: "monospace", color: BRAND.textPrimary }}
-              >
-                12 un.
-              </span>
-            </div>
-
-            <div style={{ textAlign: "right" }}>
-              <span
-                style={{
-                  fontSize: "9px",
-                  fontFamily: "monospace",
-                  color: BRAND.textMuted,
-                  textTransform: "uppercase",
-                  display: "block",
-                  marginBottom: "0.3rem",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                Subtotal
-              </span>
-              <span
-                style={{
-                  fontFamily: "monospace",
-                  color: BRAND.textPrimary,
-                  fontWeight: "600",
-                }}
-              >
-                $1.176
-              </span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-end",
-              paddingTop: "1.25rem",
-            }}
-          >
-            <span style={{ fontSize: "11px", color: BRAND.textMuted }}>
-              Emitido el 22/08/2026
-            </span>
-            <div style={{ textAlign: "right" }}>
-              <span
-                style={{
-                  fontSize: "9px",
-                  fontFamily: "monospace",
-                  color: BRAND.textMuted,
-                  textTransform: "uppercase",
-                  display: "block",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                Total Orden
-              </span>
-              <span
-                style={{
-                  fontSize: "1.6rem",
-                  fontWeight: "300",
-                  color: BRAND.textPrimary,
-                  fontFamily: "serif",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                $1.176{" "}
-                <span
-                  style={{
-                    fontSize: "10px",
-                    fontFamily: "sans-serif",
-                    color: BRAND.yellow,
-                    fontWeight: "700",
-                  }}
+            ) : (
+              filteredOrders.map((order) => (
+                <article
+                  key={order.id}
+                  className="border border-[#ddd7cc] bg-[#fbfaf7] transition hover:border-[#c8c0b4]"
                 >
-                  ARS
-                </span>
-              </span>
-            </div>
-          </div>
-        </article>
+                  <div className="flex flex-col gap-5 border-b border-[#e4dfd6] px-6 py-5 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#a17b35]">
+                        OT #{order.id}
+                      </p>
+                      <p className="mt-2 text-sm text-[#4f4942]">
+                        {order.client}
+                      </p>
+                    </div>
 
-        {/* Modal renderizado */}
-        <NuevaOrdenModal
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
-        />
-      </div>
-    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <StatusBadge status={order.status} />
+                      <button
+                        type="button"
+                        className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#756e65] underline decoration-[#c9c1b6] underline-offset-4 transition hover:text-[#24221f]"
+                      >
+                        Emitir factura
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 px-6 py-6 sm:px-7 lg:grid-cols-[minmax(0,2.4fr)_0.8fr_0.7fr_0.9fr] lg:items-end">
+                    <div>
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#969087]">
+                        Especificación / variante
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-[#34302b]">
+                        {order.product}
+                      </p>
+                      <p className="mt-1 text-xs text-[#817a71]">
+                        {order.variant}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#969087]">
+                        Precio unit.
+                      </p>
+                      <p className="mt-2 text-sm text-[#34302b]">
+                        ${currency.format(order.unitPrice)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#969087]">
+                        Cantidad
+                      </p>
+                      <p className="mt-2 text-sm text-[#34302b]">
+                        {order.quantity} un.
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#969087]">
+                        Subtotal
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-[#34302b]">
+                        ${currency.format(order.subtotal)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-4 border-t border-[#e4dfd6] px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                    <p className="text-xs text-[#898178]">
+                      Emitido el {order.date}
+                    </p>
+
+                    <div className="text-left sm:text-right">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#969087]">
+                        Total de la orden
+                      </p>
+                      <p className="mt-1 font-serif text-2xl text-[#24221f]">
+                        ${currency.format(order.subtotal)}
+                        <span className="ml-2 font-sans text-[10px] uppercase tracking-[0.12em] text-[#a17b35]">
+                          ARS
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </section>
+        </div>
+      </main>
+
+      <NuevaOrdenModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }
