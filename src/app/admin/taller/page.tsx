@@ -1,483 +1,316 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase/client";
 
-interface OTProcesada {
+interface ItemTaller {
   id: string;
-  numero_ot: number;
-  cliente: string;
-  sistema: string;
-  tela: string;
-  nominal: string;
-  corteTela: string;
-  corteTubo: string;
-  corteZocalo: string;
-  mando: string;
-  caida: string;
-  soporte: string;
-  estado: "pendiente" | "corte_tela" | "armado" | "qc_aprobado";
+  orden_id: string;
+  cantidad: number;
+  precio_unitario: number;
+  total: number;
+  variante_id: string;
+  variante?: {
+    atributos: Record<string, unknown> | null;
+    productos?: { nombre: string; categoria: string | null } | null;
+  } | null;
+}
+
+interface OrdenTaller {
+  id: string;
+  user_id: string;
+  status: string;
+  total: number;
+  notas: string | null;
+  created_at: string;
+  items: ItemTaller[];
+  profile?: { email: string | null } | null;
+}
+
+const ETAPAS = [
+  { key: "pendiente", label: "Pendiente" },
+  { key: "en_proceso", label: "Preparación" },
+  { key: "produccion", label: "Producción" },
+  { key: "lista", label: "Control / lista" },
+];
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function getVariantLabel(item: ItemTaller) {
+  const product = item.variante?.productos?.nombre ?? "Producto";
+  const attributes = item.variante?.atributos;
+
+  if (!attributes || typeof attributes !== "object") return product;
+
+  const detail = Object.entries(attributes)
+    .map(([key, value]) => `${key}: ${String(value)}`)
+    .join(" · ");
+
+  return detail ? `${product} — ${detail}` : product;
 }
 
 export default function TallerProduccionPage() {
-  const BRAND = {
-    yellow: "#F5A623",
-    darkBg: "#0C0C0D",
-    cardBg: "#141416",
-    cardHeader: "#1C1C1F",
-    border: "#242428",
-    textPrimary: "#F4F4F5",
-    textMuted: "#8E8E93",
-    green: "#10B981",
+  const [ordenes, setOrdenes] = useState<OrdenTaller[]>([]);
+  const [filtro, setFiltro] = useState("todas");
+  const [busqueda, setBusqueda] = useState("");
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargarTaller = async () => {
+    setCargando(true);
+    setError(null);
+
+    const { data, error: queryError } = await supabase
+      .from("orders")
+      .select(
+        `
+          id,
+          user_id,
+          status,
+          total,
+          notas,
+          created_at,
+          profiles(email),
+          items_orden(
+            id,
+            orden_id,
+            cantidad,
+            precio_unitario,
+            total,
+            variante_id,
+            variantes_producto(
+              atributos,
+              productos(nombre, categoria)
+            )
+          )
+        `,
+      )
+      .in("status", ["pendiente", "en_proceso", "produccion", "lista"])
+      .order("created_at", { ascending: true });
+
+    if (queryError) {
+      console.error("Error cargando taller:", queryError);
+      setError("No se pudo cargar la cola de producción.");
+      setOrdenes([]);
+      setCargando(false);
+      return;
+    }
+
+    setOrdenes(
+      ((data ?? []) as unknown as Array<OrdenTaller & { items_orden?: ItemTaller[] }>).map(
+        (orden) => ({
+          ...orden,
+          items: orden.items_orden ?? [],
+        }),
+      ),
+    );
+    setCargando(false);
   };
 
-  const [ordenes, setOrdenes] = useState<OTProcesada[]>([
-    {
-      id: "1",
-      numero_ot: 1042,
-      cliente: "Estudio Arquitectura A3",
-      sistema: "Roller Doble",
-      tela: "Screen 3% White / Blackout Premium",
-      nominal: "1800 x 2200 mm",
-      corteTela: "1765 x 2500 mm",
-      corteTubo: "1770 mm",
-      corteZocalo: "1765 mm",
-      mando: "Izquierdo (Cadena Metálica)",
-      caida: "Por detrás",
-      soporte: "Doble Blanco 38mm",
-      estado: "pendiente",
-    },
-    {
-      id: "2",
-      numero_ot: 1043,
-      cliente: "Residencia Martinez",
-      sistema: "Roller Individual",
-      tela: "Screen 5% Charcoal",
-      nominal: "2400 x 1800 mm",
-      corteTela: "2365 x 2100 mm",
-      corteTubo: "2370 mm",
-      corteZocalo: "2365 mm",
-      mando: "Derecho (Cadena Plástica)",
-      caida: "Por delante",
-      soporte: "Simple Negro",
-      estado: "corte_tela",
-    },
-  ]);
+  useEffect(() => {
+    cargarTaller();
+  }, []);
 
-  const [filtroEtapa, setFiltroEtapa] = useState<string>("todas");
+  const ordenesFiltradas = useMemo(() => {
+    const termino = busqueda.trim().toLowerCase();
 
-  const avanzarEstado = (id: string) => {
-    setOrdenes((prev) =>
-      prev.map((ot) => {
-        if (ot.id !== id) return ot;
-        if (ot.estado === "pendiente") return { ...ot, estado: "corte_tela" };
-        if (ot.estado === "corte_tela") return { ...ot, estado: "armado" };
-        if (ot.estado === "armado") return { ...ot, estado: "qc_aprobado" };
-        return ot;
-      }),
+    return ordenes.filter((orden) => {
+      const coincideEtapa = filtro === "todas" || orden.status === filtro;
+      const email = orden.profile?.email?.toLowerCase() ?? "";
+      const items = orden.items
+        .map(getVariantLabel)
+        .join(" ")
+        .toLowerCase();
+
+      const coincideBusqueda =
+        !termino ||
+        orden.id.toLowerCase().includes(termino) ||
+        email.includes(termino) ||
+        items.includes(termino) ||
+        (orden.notas ?? "").toLowerCase().includes(termino);
+
+      return coincideEtapa && coincideBusqueda;
+    });
+  }, [ordenes, filtro, busqueda]);
+
+  const avanzarOrden = async (orden: OrdenTaller) => {
+    const currentIndex = ETAPAS.findIndex((etapa) => etapa.key === orden.status);
+    const siguiente = ETAPAS[currentIndex + 1];
+
+    if (!siguiente) return;
+
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({ status: siguiente.key })
+      .eq("id", orden.id);
+
+    if (updateError) {
+      console.error("Error avanzando orden de taller:", updateError);
+      setError("No se pudo actualizar la etapa de producción.");
+      return;
+    }
+
+    setOrdenes((actuales) =>
+      actuales.map((item) =>
+        item.id === orden.id ? { ...item, status: siguiente.key } : item,
+      ),
     );
   };
 
-  const ordenesFiltradas = ordenes.filter((ot) => {
-    if (filtroEtapa === "todas") return true;
-    return ot.estado === filtroEtapa;
-  });
-
   return (
-    <div
-      style={{
-        padding: "1.5rem",
-        maxWidth: "900px",
-        margin: "0 auto",
-        color: BRAND.textPrimary,
-      }}
-    >
-      {/* Header Operativo */}
-      <header
-        style={{
-          paddingBottom: "1.2rem",
-          borderBottom: `1px solid ${BRAND.border}`,
-          marginBottom: "1.5rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginBottom: "0.3rem",
-          }}
-        >
-          <span
-            style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              backgroundColor: BRAND.yellow,
-              display: "inline-block",
-            }}
-          />
-          <span
-            style={{
-              fontSize: "11px",
-              fontFamily: "monospace",
-              letterSpacing: "0.2em",
-              color: BRAND.yellow,
-              textTransform: "uppercase",
-            }}
-          >
-            MÓDULO DE FÁBRICA & DESPIECE
-          </span>
+    <div className="cs-fade-up space-y-8">
+      <header className="flex flex-col gap-6 border-b cs-rule pb-7 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <span className="cs-eyebrow">Operación · taller</span>
+          <h1 className="cs-display mt-2 text-4xl md:text-5xl">Cola de producción.</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cs-muted)]">
+            Una vista operativa de las órdenes que ya requieren preparación, fabricación y control.
+          </p>
         </div>
-        <h1 style={{ fontSize: "1.6rem", fontWeight: "400", margin: 0 }}>
-          Terminal de Producción
-        </h1>
+        <button className="cs-button" onClick={cargarTaller} type="button">
+          Actualizar cola
+        </button>
       </header>
 
-      {/* Filtros de Taller */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          marginBottom: "1.5rem",
-          overflowX: "auto",
-          paddingBottom: "0.5rem",
-        }}
-      >
+      <section className="grid grid-cols-2 gap-px border cs-rule bg-[var(--cs-line)] md:grid-cols-4">
         {[
-          { key: "todas", label: "Todas" },
-          { key: "pendiente", label: "1. Mesa de Corte" },
-          { key: "corte_tela", label: "2. Ensamblado" },
-          { key: "armado", label: "3. Control Calidad" },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setFiltroEtapa(tab.key)}
-            style={{
-              backgroundColor:
-                filtroEtapa === tab.key ? BRAND.yellow : BRAND.cardBg,
-              color: filtroEtapa === tab.key ? "#000000" : BRAND.textMuted,
-              border: `1px solid ${filtroEtapa === tab.key ? BRAND.yellow : BRAND.border}`,
-              padding: "0.6rem 1rem",
-              fontSize: "11px",
-              fontWeight: "700",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {tab.label}
-          </button>
+          ["En cola", ordenes.length],
+          ["Preparación", ordenes.filter((o) => o.status === "en_proceso").length],
+          ["Producción", ordenes.filter((o) => o.status === "produccion").length],
+          ["Listas", ordenes.filter((o) => o.status === "lista").length],
+        ].map(([label, value]) => (
+          <div key={label} className="bg-[var(--cs-white)] px-5 py-6">
+            <div className="cs-eyebrow">{label}</div>
+            <div className="mt-2 text-3xl font-light tracking-tight">{value}</div>
+          </div>
         ))}
-      </div>
+      </section>
 
-      {/* Tarjetas de Trabajo */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {ordenesFiltradas.map((ot) => (
-          <article
-            key={ot.id}
-            style={{
-              backgroundColor: BRAND.cardBg,
-              border: `1px solid ${BRAND.border}`,
-              overflow: "hidden",
-            }}
-          >
-            {/* Cabecera */}
-            <div
-              style={{
-                backgroundColor: BRAND.cardHeader,
-                padding: "1rem 1.25rem",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: `1px solid ${BRAND.border}`,
-              }}
+      <section className="flex flex-col gap-3 border-b cs-rule pb-5 lg:flex-row lg:items-center lg:justify-between">
+        <input
+          className="cs-input max-w-xl"
+          value={busqueda}
+          onChange={(event) => setBusqueda(event.target.value)}
+          placeholder="Buscar por cliente, ID, producto o nota..."
+        />
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {[{ key: "todas", label: "Todas" }, ...ETAPAS].map((etapa) => (
+            <button
+              key={etapa.key}
+              type="button"
+              onClick={() => setFiltro(etapa.key)}
+              className={`whitespace-nowrap border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+                filtro === etapa.key
+                  ? "border-[var(--cs-ink)] bg-[var(--cs-ink)] text-white"
+                  : "border-[var(--cs-line)] bg-white text-[var(--cs-muted)] hover:border-[var(--cs-ink)]"
+              }`}
             >
-              <div>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                    color: BRAND.yellow,
-                    fontWeight: "700",
-                    letterSpacing: "0.15em",
-                  }}
-                >
-                  OT #{ot.numero_ot}
-                </span>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: BRAND.textMuted,
-                    marginLeft: "0.75rem",
-                  }}
-                >
-                  {ot.cliente}
-                </span>
-              </div>
+              {etapa.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontFamily: "monospace",
-                  textTransform: "uppercase",
-                  padding: "0.3rem 0.6rem",
-                  backgroundColor:
-                    ot.estado === "qc_aprobado"
-                      ? "rgba(16, 185, 129, 0.15)"
-                      : "rgba(245, 166, 35, 0.15)",
-                  color:
-                    ot.estado === "qc_aprobado" ? BRAND.green : BRAND.yellow,
-                  border: `1px solid ${ot.estado === "qc_aprobado" ? BRAND.green : BRAND.yellow}`,
-                }}
-              >
-                {ot.estado.replace("_", " ")}
-              </span>
-            </div>
+      {error && (
+        <div className="border border-[#e2c8c4] bg-[#fbf2f1] px-4 py-3 text-sm text-[var(--cs-danger)]">
+          {error}
+        </div>
+      )}
 
-            {/* Especificaciones */}
-            <div
-              style={{
-                padding: "1.25rem",
-                borderBottom: `1px solid ${BRAND.border}`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "15px",
-                  fontWeight: "600",
-                  color: BRAND.textPrimary,
-                  marginBottom: "0.2rem",
-                }}
-              >
-                {ot.sistema} —{" "}
-                <span style={{ color: BRAND.yellow }}>{ot.tela}</span>
-              </div>
-              <div style={{ fontSize: "12px", color: BRAND.textMuted }}>
-                Medida Nominal Solicitada:{" "}
-                <strong style={{ color: BRAND.textPrimary }}>
-                  {ot.nominal}
-                </strong>
-              </div>
-            </div>
+      {cargando ? (
+        <div className="cs-card px-6 py-14 text-center text-sm text-[var(--cs-muted)]">Cargando producción...</div>
+      ) : ordenesFiltradas.length === 0 ? (
+        <div className="cs-card px-6 py-14 text-center">
+          <div className="cs-eyebrow">Cola vacía</div>
+          <p className="mt-3 text-sm text-[var(--cs-muted)]">No hay órdenes que coincidan con los filtros actuales.</p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {ordenesFiltradas.map((orden) => {
+            const etapaIndex = ETAPAS.findIndex((etapa) => etapa.key === orden.status);
+            const siguiente = ETAPAS[etapaIndex + 1];
 
-            {/* RECETA DE CORTE */}
-            <div
-              style={{
-                padding: "1.25rem",
-                backgroundColor: "#0E0E10",
-                borderBottom: `1px solid ${BRAND.border}`,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontFamily: "monospace",
-                  color: BRAND.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.15em",
-                  display: "block",
-                  marginBottom: "0.8rem",
-                }}
-              >
-                RECETA DE CORTE DE MATERIALES
-              </span>
+            return (
+              <article key={orden.id} className="cs-card overflow-hidden">
+                <div className="border-b cs-rule px-5 py-5 md:px-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <span className="cs-eyebrow">Orden · {orden.id.slice(0, 8).toUpperCase()}</span>
+                      <h2 className="mt-1 text-base font-medium">{orden.profile?.email || "Cliente sin email visible"}</h2>
+                      <p className="mt-1 text-xs text-[var(--cs-muted)]">Ingresó {formatDate(orden.created_at)}</p>
+                    </div>
+                    <span className="inline-flex w-fit border border-[#d8c7aa] bg-[#f8f1e5] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--cs-gold-dark)]">
+                      {ETAPAS[etapaIndex]?.label ?? orden.status}
+                    </span>
+                  </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    borderLeft: `3px solid ${BRAND.yellow}`,
-                    paddingLeft: "0.75rem",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      color: BRAND.textMuted,
-                      display: "block",
-                    }}
-                  >
-                    Corte de Tela
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "1.25rem",
-                      fontFamily: "monospace",
-                      fontWeight: "700",
-                      color: BRAND.textPrimary,
-                    }}
-                  >
-                    {ot.corteTela}
-                  </span>
+                  <div className="mt-6 grid grid-cols-4 gap-1">
+                    {ETAPAS.map((etapa, index) => (
+                      <div key={etapa.key}>
+                        <div className={`h-1 ${index <= etapaIndex ? "bg-[var(--cs-gold)]" : "bg-[var(--cs-sand)]"}`} />
+                        <span className="mt-2 block text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--cs-muted)]">{etapa.label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div
-                  style={{
-                    borderLeft: `3px solid ${BRAND.textMuted}`,
-                    paddingLeft: "0.75rem",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      color: BRAND.textMuted,
-                      display: "block",
-                    }}
-                  >
-                    Tubo Aluminio
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "1.25rem",
-                      fontFamily: "monospace",
-                      fontWeight: "700",
-                      color: BRAND.textPrimary,
-                    }}
-                  >
-                    {ot.corteTubo}
-                  </span>
-                </div>
+                <div className="grid gap-6 px-5 py-5 md:px-6 lg:grid-cols-[1fr_auto]">
+                  <div>
+                    <div className="cs-eyebrow">Despiece / productos</div>
+                    <div className="mt-3 space-y-3">
+                      {orden.items.length === 0 ? (
+                        <p className="text-sm text-[var(--cs-muted)]">La orden no tiene ítems cargados.</p>
+                      ) : (
+                        orden.items.map((item) => (
+                          <div key={item.id} className="flex flex-col gap-1 border-b cs-rule pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-medium">{getVariantLabel(item)}</p>
+                              <p className="text-xs text-[var(--cs-muted)]">Variante · {item.variante_id.slice(0, 8).toUpperCase()}</p>
+                            </div>
+                            <span className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--cs-muted)]">x {item.cantidad}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
 
-                <div
-                  style={{
-                    borderLeft: `3px solid ${BRAND.textMuted}`,
-                    paddingLeft: "0.75rem",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      color: BRAND.textMuted,
-                      display: "block",
-                    }}
-                  >
-                    Zócalo Contrapeso
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "1.25rem",
-                      fontFamily: "monospace",
-                      fontWeight: "700",
-                      color: BRAND.textPrimary,
-                    }}
-                  >
-                    {ot.corteZocalo}
-                  </span>
-                </div>
-              </div>
-            </div>
+                    {orden.notas && (
+                      <div className="mt-5 border-t cs-rule pt-4">
+                        <div className="cs-eyebrow">Observaciones</div>
+                        <p className="mt-2 text-sm leading-6 text-[var(--cs-muted)]">{orden.notas}</p>
+                      </div>
+                    )}
+                  </div>
 
-            {/* ESPECIFICACIONES DE ARMADO */}
-            <div
-              style={{
-                padding: "1.25rem",
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
-                gap: "1rem",
-                fontSize: "11px",
-                color: BRAND.textMuted,
-                borderBottom: `1px solid ${BRAND.border}`,
-              }}
-            >
-              <div>
-                <span
-                  style={{
-                    display: "block",
-                    color: BRAND.textMuted,
-                    fontSize: "9px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  COMANDO
-                </span>
-                <strong style={{ color: BRAND.textPrimary, fontSize: "12px" }}>
-                  {ot.mando}
-                </strong>
-              </div>
-              <div>
-                <span
-                  style={{
-                    display: "block",
-                    color: BRAND.textMuted,
-                    fontSize: "9px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  CAÍDA PAÑO
-                </span>
-                <strong style={{ color: BRAND.textPrimary, fontSize: "12px" }}>
-                  {ot.caida}
-                </strong>
-              </div>
-              <div>
-                <span
-                  style={{
-                    display: "block",
-                    color: BRAND.textMuted,
-                    fontSize: "9px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  SOPORTES
-                </span>
-                <strong style={{ color: BRAND.textPrimary, fontSize: "12px" }}>
-                  {ot.soporte}
-                </strong>
-              </div>
-            </div>
+                  <div className="flex min-w-52 flex-col justify-between gap-5 border-t cs-rule pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                    <div>
+                      <div className="cs-eyebrow">Siguiente acción</div>
+                      <p className="mt-2 text-sm leading-6">
+                        {siguiente ? `Pasar la orden a ${siguiente.label.toLowerCase()}.` : "Orden lista para despacho o instalación."}
+                      </p>
+                    </div>
 
-            {/* BOTÓN 1-TAP */}
-            <div
-              style={{
-                padding: "1rem 1.25rem",
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
-            >
-              {ot.estado !== "qc_aprobado" ? (
-                <button
-                  onClick={() => avanzarEstado(ot.id)}
-                  style={{
-                    backgroundColor: BRAND.yellow,
-                    color: "#000000",
-                    border: "none",
-                    padding: "0.8rem 1.5rem",
-                    fontSize: "11px",
-                    fontWeight: "800",
-                    letterSpacing: "0.15em",
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                    width: "100%",
-                    textAlign: "center",
-                  }}
-                >
-                  {ot.estado === "pendiente" && "➔ Iniciar Corte de Materiales"}
-                  {ot.estado === "corte_tela" && "➔ Enviar a Ensamblado"}
-                  {ot.estado === "armado" && "✔ Aprobar Control de Calidad"}
-                </button>
-              ) : (
-                <div
-                  style={{
-                    color: BRAND.green,
-                    fontSize: "11px",
-                    fontFamily: "monospace",
-                    letterSpacing: "0.1em",
-                    fontWeight: "700",
-                  }}
-                >
-                  ✔ LISTO PARA DESPACHO / INSTALACIÓN
+                    {siguiente ? (
+                      <button type="button" className="cs-button w-full" onClick={() => avanzarOrden(orden)}>
+                        Avanzar a {siguiente.label}
+                      </button>
+                    ) : (
+                      <div className="border border-[#c9d8cd] bg-[#f0f5f1] px-4 py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--cs-success)]">
+                        Lista para despacho
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
