@@ -2,217 +2,70 @@
 
 import Link from "next/link";
 
-export default function DashboardPage() {
-  const BRAND = {
-    yellow: "#F5A623",
-    cardBg: "#141416",
-    border: "#242428",
-    textPrimary: "#F4F4F5",
-    textMuted: "#8E8E93",
-  };
+const metrics = [
+  { label: "Órdenes activas", value: "12", detail: "En operación" },
+  { label: "Cotizaciones", value: "5", detail: "Pendientes de revisión", accent: true },
+  { label: "Sistemas en confección", value: "8", detail: "En taller" },
+  { label: "Proyectos del mes", value: "24", detail: "Actividad comercial" },
+];
 
+export default function DashboardPage() {
   return (
-    <div style={{ padding: "2rem", maxWidth: "1100px", margin: "0 auto" }}>
-      {/* Header */}
-      <header
-        style={{
-          paddingBottom: "1.5rem",
-          borderBottom: `1px solid ${BRAND.border}`,
-          marginBottom: "2rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginBottom: "0.4rem",
-          }}
-        >
-          <span
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              backgroundColor: BRAND.yellow,
-              display: "inline-block",
-            }}
-          />
-          <span
-            style={{
-              fontSize: "10px",
-              fontFamily: "monospace",
-              letterSpacing: "0.25em",
-              color: BRAND.yellow,
-              textTransform: "uppercase",
-            }}
-          >
-            CIAO SOLE · RESUMEN GENERAL
+    <div className="mx-auto max-w-[1180px]">
+      <header className="border-b border-[var(--cs-line)] pb-8">
+        <p className="cs-eyebrow">Ciao Sole · Resumen general</p>
+        <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div>
+            <h1 className="cs-display text-5xl sm:text-6xl">Dashboard.</h1>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--cs-muted)]">
+              Una lectura rápida del estado comercial y operativo de la empresa.
+            </p>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-[.14em] text-[var(--cs-muted)]">
+            Vista administrativa
           </span>
         </div>
-        <h1
-          style={{
-            fontSize: "1.75rem",
-            fontWeight: "300",
-            color: BRAND.textPrimary,
-            margin: 0,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Dashboard Principal
-        </h1>
       </header>
 
-      {/* Métricas Rápidas */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-          gap: "1.5rem",
-          marginBottom: "2.5rem",
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: BRAND.cardBg,
-            border: `1px solid ${BRAND.border}`,
-            padding: "1.5rem",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "10px",
-              fontFamily: "monospace",
-              color: BRAND.textMuted,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              display: "block",
-            }}
-          >
-            Órdenes Activas
-          </span>
-          <p
-            style={{
-              fontSize: "2.2rem",
-              fontWeight: "300",
-              margin: "0.5rem 0 0 0",
-              color: BRAND.textPrimary,
-              fontFamily: "serif",
-            }}
-          >
-            12
+      <section className="grid gap-px border-x border-b border-[var(--cs-line)] bg-[var(--cs-line)] sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="bg-[var(--cs-white)] p-6 sm:p-7">
+            <p className="text-[10px] font-bold uppercase tracking-[.13em] text-[var(--cs-muted)]">
+              {metric.label}
+            </p>
+            <p className={`cs-display mt-4 text-5xl ${metric.accent ? "text-[var(--cs-gold-dark)]" : ""}`}>
+              {metric.value}
+            </p>
+            <p className="mt-2 text-xs text-[var(--cs-muted)]">{metric.detail}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="mt-10 grid gap-6 lg:grid-cols-[1.25fr_.75fr]">
+        <div className="cs-card p-7 sm:p-9">
+          <p className="cs-eyebrow">Operación</p>
+          <h2 className="cs-display mt-3 text-3xl">Gestión de pedidos de trabajo.</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--cs-muted)]">
+            Revisá cotizaciones, estados, especificaciones técnicas y próximos
+            pasos de producción desde un único flujo.
           </p>
+          <Link href="/admin/ordenes" className="cs-button mt-7">
+            Ver órdenes
+          </Link>
         </div>
 
-        <div
-          style={{
-            backgroundColor: BRAND.cardBg,
-            border: `1px solid ${BRAND.border}`,
-            padding: "1.5rem",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "10px",
-              fontFamily: "monospace",
-              color: BRAND.textMuted,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              display: "block",
-            }}
-          >
-            Cotizaciones Pendientes
-          </span>
-          <p
-            style={{
-              fontSize: "2.2rem",
-              fontWeight: "300",
-              margin: "0.5rem 0 0 0",
-              color: BRAND.yellow,
-              fontFamily: "serif",
-            }}
-          >
-            5
+        <div className="bg-[var(--cs-ink)] p-7 text-white sm:p-9">
+          <p className="cs-eyebrow !text-[var(--cs-gold)]">Taller</p>
+          <h2 className="cs-display mt-3 text-3xl">De la medida al corte.</h2>
+          <p className="mt-4 text-sm leading-6 text-white/55">
+            El módulo de producción será el puente entre la orden aprobada y la
+            fabricación.
           </p>
+          <Link href="/admin/taller" className="mt-7 inline-flex text-[10px] font-bold uppercase tracking-[.14em] text-[var(--cs-gold)] hover:text-white">
+            Abrir taller →
+          </Link>
         </div>
-
-        <div
-          style={{
-            backgroundColor: BRAND.cardBg,
-            border: `1px solid ${BRAND.border}`,
-            padding: "1.5rem",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "10px",
-              fontFamily: "monospace",
-              color: BRAND.textMuted,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              display: "block",
-            }}
-          >
-            Sistemas en Confección
-          </span>
-          <p
-            style={{
-              fontSize: "2.2rem",
-              fontWeight: "300",
-              margin: "0.5rem 0 0 0",
-              color: BRAND.textPrimary,
-              fontFamily: "serif",
-            }}
-          >
-            8
-          </p>
-        </div>
-      </div>
-
-      {/* Acceso Rápido a Trabajo */}
-      <div
-        style={{
-          backgroundColor: BRAND.cardBg,
-          border: `1px solid ${BRAND.border}`,
-          padding: "1.75rem",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <div>
-          <h3
-            style={{
-              fontSize: "14px",
-              fontWeight: "400",
-              margin: "0 0 0.25rem 0",
-              color: BRAND.textPrimary,
-            }}
-          >
-            Gestión de Pedidos de Trabajo
-          </h3>
-          <p style={{ fontSize: "12px", color: BRAND.textMuted, margin: 0 }}>
-            Revisá las especificaciones técnicas de telas, medidas y estados de
-            producción.
-          </p>
-        </div>
-
-        <Link
-          href="/admin/ordenes"
-          style={{
-            backgroundColor: BRAND.yellow,
-            color: "#000000",
-            padding: "0.6rem 1.2rem",
-            fontSize: "11px",
-            fontWeight: "700",
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            textDecoration: "none",
-          }}
-        >
-          Ver Órdenes ↗
-        </Link>
-      </div>
+      </section>
     </div>
   );
 }
