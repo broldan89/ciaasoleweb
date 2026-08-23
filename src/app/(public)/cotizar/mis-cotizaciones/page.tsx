@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import Link from "next/link";
 
 interface ItemOrden {
   id: string;
-  product_variant_id: string;
+  variante_id: string;
   precio_unitario: number;
   cantidad: number;
   total: number;
@@ -19,6 +20,21 @@ interface Orden {
   items: ItemOrden[];
 }
 
+function estadoLabel(status: string) {
+  switch (status) {
+    case "cotizacion":
+      return "En revisión";
+    case "borrador":
+      return "Borrador";
+    case "aprobada":
+      return "Aprobada";
+    case "facturada":
+      return "Facturada";
+    default:
+      return status || "Sin estado";
+  }
+}
+
 export default function MisCotizacionesPage() {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -28,34 +44,43 @@ export default function MisCotizacionesPage() {
       try {
         setCargando(true);
 
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (error || !data || data.length === 0) {
+        if (!user) {
           setOrdenes([]);
           return;
         }
 
-        // Traemos los items de cada orden desde order_items (esquema real)
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
         const ordenesConItems = await Promise.all(
-          data.map(async (orden) => {
-            const { data: itemsData } = await supabase
-              .from("order_items")
+          (data ?? []).map(async (orden) => {
+            const { data: itemsData, error: itemsError } = await supabase
+              .from("items_orden")
               .select("*")
-              .eq("order_id", orden.id);
+              .eq("orden_id", orden.id);
+
+            if (itemsError) throw itemsError;
 
             return {
               ...orden,
-              items: itemsData || [],
-            };
+              items: itemsData ?? [],
+            } as Orden;
           }),
         );
 
         setOrdenes(ordenesConItems);
       } catch (err) {
         console.error("Error cargando cotizaciones:", err);
+        setOrdenes([]);
       } finally {
         setCargando(false);
       }
@@ -66,206 +91,92 @@ export default function MisCotizacionesPage() {
 
   if (cargando) {
     return (
-      <div
-        style={{
-          maxWidth: "800px",
-          margin: "4rem auto",
-          padding: "0 1rem",
-          color: "#86868B",
-          textAlign: "center",
-        }}
-      >
-        Cargando cotizaciones...
+      <div className="cs-section py-24 text-center">
+        <p className="cs-eyebrow">Cuenta</p>
+        <p className="cs-display mt-3 text-3xl">Cargando tus proyectos...</p>
       </div>
     );
   }
 
   return (
-    <div
-      style={{ maxWidth: "800px", margin: "0 auto", padding: "2.5rem 1rem" }}
-    >
-      <h1
-        style={{
-          fontSize: "1.75rem",
-          fontWeight: "700",
-          marginBottom: "2rem",
-          color: "#1D1D1F",
-        }}
-      >
-        Mis Cotizaciones
-      </h1>
+    <div className="cs-section py-14 sm:py-20 lg:py-24">
+      <div className="flex flex-col justify-between gap-6 border-b border-[var(--cs-line)] pb-10 sm:flex-row sm:items-end">
+        <div>
+          <p className="cs-eyebrow">Cuenta / Historial</p>
+          <h1 className="cs-display mt-3 text-5xl sm:text-6xl">Mis cotizaciones.</h1>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--cs-muted)]">
+            Consultá el estado y detalle de cada solicitud enviada a Ciao Sole.
+          </p>
+        </div>
+        <Link href="/" className="cs-button cs-button-secondary">
+          Nueva selección
+        </Link>
+      </div>
 
       {ordenes.length === 0 ? (
-        <p style={{ color: "#86868B" }}>
-          No tenés cotizaciones registradas aún.
-        </p>
+        <div className="cs-card mt-10 p-10 text-center sm:p-16">
+          <p className="cs-display text-3xl">Todavía no hay cotizaciones.</p>
+          <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[var(--cs-muted)]">
+            Explorá el catálogo, elegí una configuración y comenzá un nuevo proyecto.
+          </p>
+          <Link href="/" className="cs-button mt-7">Explorar catálogo</Link>
+        </div>
       ) : (
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
-        >
-          {ordenes.map((orden) => (
-            <div
-              key={orden.id}
-              style={{
-                border: "1px solid #E8E8ED",
-                borderRadius: "12px",
-                padding: "1.5rem",
-                backgroundColor: "#FFFFFF",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "1.25rem",
-                }}
-              >
-                <span style={{ fontWeight: "600", fontSize: "15px" }}>
-                  {new Date(orden.created_at).toLocaleDateString("es-AR")}
-                </span>
-                <span
-                  style={{
-                    backgroundColor: "#DCFCE7",
-                    color: "#166534",
-                    fontSize: "12px",
-                    fontWeight: "600",
-                    padding: "0.25rem 0.65rem",
-                    borderRadius: "4px",
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {orden.status || "Aprobada"}
+        <div className="mt-10 space-y-6">
+          {ordenes.map((orden, index) => (
+            <article key={orden.id} className="cs-card overflow-hidden">
+              <div className="flex flex-col gap-5 border-b border-[var(--cs-line)] bg-[var(--cs-ivory)] px-6 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+                <div>
+                  <p className="cs-eyebrow">Proyecto 0{index + 1}</p>
+                  <p className="mt-2 text-sm font-semibold">
+                    {new Date(orden.created_at).toLocaleDateString("es-AR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+                <span className="inline-flex w-fit border border-[var(--cs-gold)] px-3 py-2 text-[10px] font-bold uppercase tracking-[.12em] text-[var(--cs-gold-dark)]">
+                  {estadoLabel(orden.status)}
                 </span>
               </div>
 
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: "14px",
-                  marginBottom: "1.25rem",
-                }}
-              >
-                <thead>
-                  <tr
-                    style={{
-                      borderBottom: "1px solid #E8E8ED",
-                      textAlign: "left",
-                      color: "#86868B",
-                    }}
-                  >
-                    <th style={{ paddingBottom: "0.5rem", fontWeight: "500" }}>
-                      Variante
-                    </th>
-                    <th
-                      style={{
-                        paddingBottom: "0.5rem",
-                        fontWeight: "500",
-                        textAlign: "right",
-                      }}
-                    >
-                      Precio
-                    </th>
-                    <th
-                      style={{
-                        paddingBottom: "0.5rem",
-                        fontWeight: "500",
-                        textAlign: "center",
-                      }}
-                    >
-                      Cantidad
-                    </th>
-                    <th
-                      style={{
-                        paddingBottom: "0.5rem",
-                        fontWeight: "500",
-                        textAlign: "right",
-                      }}
-                    >
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orden.items && orden.items.length > 0 ? (
-                    orden.items.map((item, idx: number) => {
-                      const precio = item.precio_unitario || 0;
-                      const subtotal = precio * (item.cantidad || 1);
-                      const titulo = item.product_variant_id || `Item #${idx + 1}`;
-
-                      return (
-                        <tr
-                          key={item.id || idx}
-                          style={{ borderBottom: "1px solid #F8F8FA" }}
-                        >
-                          <td
-                            style={{ padding: "0.75rem 0", color: "#1D1D1F" }}
-                          >
-                            {titulo}
-                          </td>
-                          <td
-                            style={{
-                              padding: "0.75rem 0",
-                              textAlign: "right",
-                              color: "#1D1D1F",
-                            }}
-                          >
-                            ${precio}
-                          </td>
-                          <td
-                            style={{
-                              padding: "0.75rem 0",
-                              textAlign: "center",
-                              color: "#1D1D1F",
-                            }}
-                          >
-                            {item.cantidad}
-                          </td>
-                          <td
-                            style={{
-                              padding: "0.75rem 0",
-                              textAlign: "right",
-                              fontWeight: "500",
-                              color: "#1D1D1F",
-                            }}
-                          >
-                            ${subtotal}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        style={{
-                          textAlign: "center",
-                          padding: "1rem 0",
-                          color: "#86868B",
-                        }}
-                      >
-                        Sin detalle de productos
-                      </td>
+              <div className="overflow-x-auto px-6 py-6 sm:px-8">
+                <table className="w-full min-w-[620px] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--cs-line)] text-left text-[10px] uppercase tracking-[.12em] text-[var(--cs-muted)]">
+                      <th className="pb-3 font-semibold">Variante</th>
+                      <th className="pb-3 text-right font-semibold">Precio</th>
+                      <th className="pb-3 text-center font-semibold">Cantidad</th>
+                      <th className="pb-3 text-right font-semibold">Subtotal</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <div
-                style={{
-                  textAlign: "right",
-                  fontSize: "1.1rem",
-                  fontWeight: "700",
-                  paddingTop: "0.75rem",
-                  borderTop: "1px solid #E8E8ED",
-                  color: "#1D1D1F",
-                }}
-              >
-                Total: ${orden.total}
+                  </thead>
+                  <tbody>
+                    {orden.items.length ? (
+                      orden.items.map((item) => (
+                        <tr key={item.id} className="border-b border-[var(--cs-line)] last:border-b-0">
+                          <td className="py-4 font-medium">{item.variante_id}</td>
+                          <td className="py-4 text-right">${Number(item.precio_unitario).toLocaleString("es-AR")}</td>
+                          <td className="py-4 text-center text-[var(--cs-muted)]">{item.cantidad}</td>
+                          <td className="py-4 text-right font-semibold">${Number(item.total).toLocaleString("es-AR")}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-[var(--cs-muted)]">Sin detalle de productos.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </div>
+
+              <div className="flex items-center justify-end border-t border-[var(--cs-line)] px-6 py-5 sm:px-8">
+                <div className="text-right">
+                  <span className="block text-[10px] uppercase tracking-[.12em] text-[var(--cs-muted)]">Total</span>
+                  <strong className="cs-display text-3xl">${Number(orden.total ?? 0).toLocaleString("es-AR")}</strong>
+                </div>
+              </div>
+            </article>
           ))}
         </div>
       )}
