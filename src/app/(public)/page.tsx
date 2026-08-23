@@ -21,6 +21,9 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Traemos el rol una sola vez, solo para decidir la etiqueta visual
+  // ("Precio mayorista"). El precio en sí NUNCA sale de acá: sale de
+  // obtener_precio_variante(), que ya sabe el rol del lado del servidor.
   let esMayorista = false;
   if (user) {
     const { data: perfil } = await supabase
@@ -31,6 +34,8 @@ export default async function HomePage() {
     esMayorista = perfil?.role === "mayorista" || perfil?.role === "admin";
   }
 
+  // variantes_publico es una vista que solo expone precio_publico —
+  // precio_mayorista nunca llega a este componente ni al HTML/RSC payload.
   const { data: productos } = await supabase
     .from("productos")
     .select(

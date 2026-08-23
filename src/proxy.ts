@@ -77,7 +77,9 @@ export async function proxy(request: NextRequest) {
   return supabaseResponse
 }
 
-export const matcher = [
-  // Excluimos la carpeta api, _next, imágenes y archivos con extensiones
-  '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-]
+export const config = {
+  matcher: [
+    // Excluimos la carpeta api, _next, imágenes y archivos con extensiones
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
