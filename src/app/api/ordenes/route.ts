@@ -123,11 +123,11 @@ export async function POST(request: Request) {
   }
 
   const { error: errorItems } = await supabase
-    .from("items_orden")
+    .from("order_items")
     .insert(
       itemsConPrecio.map((item) => ({
-        orden_id: orden.id,
-        variante_id: item.variante_id,
+        order_id: orden.id,
+        product_variant_id: item.variante_id,
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
         total: item.total,

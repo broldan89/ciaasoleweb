@@ -3,8 +3,24 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
+interface ItemOrden {
+  id: string;
+  product_variant_id: string;
+  precio_unitario: number;
+  cantidad: number;
+  total: number;
+}
+
+interface Orden {
+  id: string;
+  status: string;
+  total: number;
+  created_at: string;
+  items: ItemOrden[];
+}
+
 export default function MisCotizacionesPage() {
-  const [ordenes, setOrdenes] = useState<any[]>([]);
+  const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -12,49 +28,27 @@ export default function MisCotizacionesPage() {
       try {
         setCargando(true);
 
-        // 1. Intentamos consultar la tabla principal de cotizaciones
-        let { data, error } = await supabase
-          .from("cotizaciones")
+        const { data, error } = await supabase
+          .from("orders")
           .select("*")
           .order("created_at", { ascending: false });
 
-        // Fallback en caso de que la tabla se llame 'ordenes'
-        if (error || !data) {
-          const resOrdenes = await supabase
-            .from("ordenes")
-            .select("*")
-            .order("created_at", { ascending: false });
-          data = resOrdenes.data;
-        }
-
-        if (!data || data.length === 0) {
+        if (error || !data || data.length === 0) {
           setOrdenes([]);
           return;
         }
 
-        // 2. Traemos los items para cada cotización/orden encontrada
+        // Traemos los items de cada orden desde order_items (esquema real)
         const ordenesConItems = await Promise.all(
-          data.map(async (orden: any) => {
-            // Buscamos items asociados
+          data.map(async (orden) => {
             const { data: itemsData } = await supabase
-              .from("items_cotizacion")
+              .from("order_items")
               .select("*")
-              .eq("cotizacion_id", orden.id);
-
-            // Si no encontró en items_cotizacion, probamos en orden_items o items
-            let itemsFinales = itemsData;
-
-            if (!itemsFinales || itemsFinales.length === 0) {
-              const fallbackItems = await supabase
-                .from("items")
-                .select("*")
-                .eq("orden_id", orden.id);
-              itemsFinales = fallbackItems.data;
-            }
+              .eq("order_id", orden.id);
 
             return {
               ...orden,
-              items: itemsFinales || [],
+              items: itemsData || [],
             };
           }),
         );
@@ -142,7 +136,7 @@ export default function MisCotizacionesPage() {
                     textTransform: "capitalize",
                   }}
                 >
-                  {orden.estado || "Aprobada"}
+                  {orden.status || "Aprobada"}
                 </span>
               </div>
 
@@ -196,14 +190,10 @@ export default function MisCotizacionesPage() {
                 </thead>
                 <tbody>
                   {orden.items && orden.items.length > 0 ? (
-                    orden.items.map((item: any, idx: number) => {
-                      const precio = item.precio_unitario || item.precio || 0;
+                    orden.items.map((item, idx: number) => {
+                      const precio = item.precio_unitario || 0;
                       const subtotal = precio * (item.cantidad || 1);
-                      const titulo =
-                        item.variante_id ||
-                        item.descripcion ||
-                        item.nombre ||
-                        `Item #${idx + 1}`;
+                      const titulo = item.product_variant_id || `Item #${idx + 1}`;
 
                       return (
                         <tr
