@@ -1,171 +1,215 @@
 # CIAO SOLE — Arquitectura y convenciones
 
-Este documento existe porque el proyecto se trabaja en paralelo con
-varias herramientas de IA distintas (Claude, Claude Code/Cursor, Gemini,
-GPT), sin un único punto de coordinación. Cada vez que una herramienta
-inventa su propia convención, la siguiente rompe algo. **Este archivo es
-la fuente de verdad. Cualquier herramienta que edite este repo debería
-leerlo primero.**
-
-Si vas a cambiar algo que contradiga este documento (un nombre de tabla,
-una convención de rutas, el flujo de precios), actualizá este archivo en
-el mismo cambio — no lo dejes desactualizado.
+Este documento es la fuente de verdad del proyecto. Antes de modificar una
+ruta, tabla, función o flujo de precios, revisar primero este archivo y luego
+contrastar el esquema real de Supabase.
 
 ## Stack
 
 - Next.js 16.3.2 (App Router, Turbopack)
+- React 19
 - Supabase (Postgres + Auth + RLS)
-- Tailwind CSS
-- Cliente único de Supabase: `@supabase/ssr` (basado en cookies, no
-  localStorage) — ver sección "Cliente de Supabase" más abajo.
+- Tailwind CSS 4
+- `@supabase/ssr` para clientes browser/server basados en cookies
 
-## Convención de nombres en la base de datos: INGLÉS
+## Esquema REAL de Supabase
 
-Decisión final (2026-08-23): todas las tablas y columnas de negocio usan
-inglés. Esto reemplaza los nombres en español usados en versiones
-anteriores del proyecto.
+Verificado contra el proyecto Supabase conectado el 2026-08-23.
 
-**Excepciones explícitas — estas dos quedan como están, no se traducen:**
-- Tabla `profiles` (ya está en inglés/neutro)
-- Función SQL `obtener_precio_variante()` (nombre en español, decisión
-  del usuario — el nombre de la función y de su parámetro
-  `p_variante_id` NO cambian, aunque internamente consulte
-  `product_variants`)
-
-### Esquema real (estado al 2026-08-23)
-
-| Tabla | Columnas clave | Notas |
+| Tabla | Estado real | Columnas relevantes |
 |---|---|---|
-| `profiles` | `id`, `email`, `role`, `rol_solicitado`, `aprobado` | El rol NUNCA se lee de `user_metadata` — siempre de esta tabla, protegida por RLS |
-| `orders` | `id`, `user_id`, `status`, `total`, `notas`, `created_at` | Ya renombrada desde `ordenes`/`usuario_id` |
-| `order_items` | `id`, `order_id`, `product_variant_id`, `cantidad`, `precio_unitario`, `total` | Renombrada desde `items_orden` en la migración `0004` |
-| `products` | `id`, `nombre`, `descripcion`, `is_active` | Renombrada desde `productos` en la migración `0004` |
-| `product_variants` | `id`, `product_id`, `atributos`, `precio_publico`, `precio_mayorista` | Renombrada desde `variantes_producto` en la migración `0004` |
-| `variantes_publico` (vista) | `id`, `product_id`, `atributos`, `precio_publico` | Vista pública SIN `precio_mayorista` — es lo único que el catálogo público debe consultar directo |
+| `profiles` | vigente | `id`, `email`, `role`, `rol_solicitado`, `aprobado` |
+| `orders` | vigente | `id`, `user_id`, `status`, `total`, `notas`, `created_at` |
+| `items_orden` | vigente | `id`, `orden_id`, `variante_id`, `cantidad`, `precio_unitario`, `total` |
+| `productos` | vigente | `id`, `nombre`, `descripcion`, `categoria`, `is_active`, `created_at` |
+| `variantes_producto` | vigente | `id`, `producto_id`, `atributos`, `precio_publico`, `precio_mayorista`, `stock`, `is_active` |
 
-**Antes de asumir un nombre de tabla o columna, revisá esta tabla.** Si
-hacés un cambio de esquema, actualizá esta tabla en el mismo commit.
+**Importante:** el esquema de producción NO está completamente unificado en
+inglés. `orders`/`user_id` ya están en inglés, mientras que `items_orden`,
+`productos` y `variantes_producto` siguen en español. El código debe usar el
+esquema real hasta que exista una migración explícita y probada para completar
+la unificación.
 
-## Modelo de roles y seguridad
+No ejecutar `supabase/migrations/0004_unificar_nombres_ingles.sql` sobre la
+base actual. Esa migración pretende renombrar tablas que todavía existen en
+español y además contiene policies antiguas que no deben volver a introducirse.
+Antes de una futura unificación se deberá preparar una migración nueva,
+probada y coherente con el RLS actual.
 
-- El rol de cada usuario vive en `profiles.role` (`cliente` / `mayorista`
-  / `admin`), protegido por RLS. **Nunca** se lee ni se escribe desde
-  `user_metadata` de Supabase Auth — ese campo lo puede editar el propio
-  usuario desde el navegador, así que no sirve como fuente de autoridad.
-- Un usuario nuevo siempre arranca en `role = 'cliente'`. Si pidió
-  "mayorista" al registrarse, queda en `profiles.rol_solicitado =
-  'mayorista'` con `aprobado = false` — un admin lo aprueba a mano
-  cambiando `role` y `aprobado` directo en la tabla (todavía no hay
-  botón en el panel para esto, es un pendiente).
-- El precio que ve cada usuario (público vs. mayorista) se resuelve
-  **siempre en el servidor**, vía la función `obtener_precio_variante()`
-  — nunca se traen ambos precios juntos al cliente. El catálogo público
-  consulta la vista `variantes_publico` (sin `precio_mayorista`) para
-  mostrar atributos, y pide el precio real vía RPC.
-- El total de una orden se recalcula **siempre en el servidor**
-  (`/api/ordenes`, POST) a partir de `varianteId` + `cantidad`. El
-  navegador nunca manda un precio ni un total que se guarde tal cual —
-  eso sería trivial de falsificar con las devtools.
+## Roles
 
-## Rutas — ¡ojo con los route groups!
+La fuente de autoridad es siempre `profiles.role`.
 
-Next.js App Router: una carpeta entre paréntesis, como `(admin)`, es un
-**route group** — agrupa layouts pero **no aparece en la URL**. Esto ya
-causó un bug real: durante un tiempo el panel admin vivía en
-`src/app/(admin)/dashboard/page.tsx`, que en realidad respondía en
-`/dashboard` (sin `/admin`), mientras que todo el resto del código
-(el middleware, los redirects de login, los links del navbar) asumía
-`/admin/dashboard`. Como consecuencia, la protección de rutas admin
-nunca se activaba de verdad.
+Valores previstos:
 
-**Ya está corregido**: las rutas admin viven en `src/app/admin/...`
-(sin paréntesis), así que `/admin/dashboard`, `/admin/productos`,
-`/admin/ordenes` y `/admin/taller` son URLs reales. **No lo vuelvas a
-envolver en paréntesis.**
+- `cliente`
+- `mayorista`
+- `admin`
 
-## Middleware / Proxy
+Nunca usar `user_metadata.rol` ni `user_metadata.role` para autorizar acciones.
+El metadata enviado durante el registro solamente sirve para expresar una
+solicitud (`rol_solicitado`). El trigger crea al usuario como `cliente` y un
+admin debe aprobar manualmente el acceso mayorista.
 
-Next.js 16.3.2 renombró la convención: el archivo se llama
-**`src/proxy.ts`** (no `middleware.ts`), y exporta una función llamada
-**`proxy`** (no `middleware`). Si usás una versión de Next más vieja
-como referencia mental, vas a "corregir" esto al revés — ya pasó en esta
-misma sesión. El build tira una advertencia clara si el nombre está mal.
+## Seguridad y RLS
 
-`src/proxy.ts` hace tres cosas:
-1. Si no hay sesión y la ruta no es `/login` ni `/register`, redirige a
-   `/login`.
-2. Si hay sesión y la ruta es `/login` o `/register`, redirige a
-   `/cotizar/mis-cotizaciones`.
-3. Si la ruta empieza con `/admin`, chequea `profiles.role` y si no es
-   `admin` (ni `administrador`), redirige afuera.
+La base actual utiliza `public.is_admin()` para evitar recursión en las policies
+de `profiles`. La función es `SECURITY DEFINER`, `STABLE`, tiene
+`search_path = public` y está limitada a usuarios autenticados.
 
-## Cliente de Supabase
+Policies actuales verificadas:
 
-Hay un solo cliente de navegador válido: **`@/lib/supabase/client`**
-(usa `createBrowserClient` de `@supabase/ssr`, sesión en cookies). Para
-Server Components y Route Handlers, usar **`@/lib/supabase-server`**
-(usa `createServerClient`, también basado en cookies, lee la sesión de
-las cookies de la request).
+- `profiles`: cada usuario puede leer su propio perfil; admin puede leer
+  perfiles; solamente admin puede actualizar.
+- `orders`: cada usuario puede leer sus propias órdenes y crear órdenes con su
+  propio `user_id`; admin puede leer y actualizar todas.
+- `items_orden`: un usuario puede leer/insertar items pertenecientes a sus
+  propias órdenes; admin puede leer/modificar/eliminar.
+- `productos`: catálogo activo público; escritura administrativa.
+- `variantes_producto`: variantes activas públicas; escritura administrativa.
 
-**No debe existir** un cliente basado en `createClient()` plano de
-`@supabase/supabase-js` con sesión en `localStorage` — esto ya causó un
-bug real (páginas que no veían la sesión que sí veían el login/middleware,
-porque localStorage y cookies no se sincronizan solos). Si ves un
-archivo así, es un resto viejo: hay que migrar sus imports al cliente
-único y borrarlo.
+No crear policies administrativas que hagan `select` directo sobre
+`profiles` desde otra policy. Usar `public.is_admin()`.
 
-## Estado de conexión de las páginas (importante, para no confundirse)
+## Precios
 
-Al 2026-08-23, estas páginas del panel admin son **interfaz visual sin
-conexión real a Supabase** — todo lo que muestran (números del
-dashboard, órdenes, productos) es data de ejemplo hardcodeada en el
-componente:
+`obtener_precio_variante(p_variante_id)` es la función vigente y su nombre se
+mantiene por decisión del proyecto.
 
-- `src/app/admin/dashboard/page.tsx`
-- `src/app/admin/productos/page.tsx`
-- `src/app/admin/ordenes/page.tsx`
-- `src/app/admin/taller/page.tsx`
+La función actual es `SECURITY INVOKER` y resuelve el precio según
+`profiles.role`. El cliente nunca debe enviar un precio que el servidor vaya a
+guardar como fuente de verdad.
 
-Están muy bien encaminadas visualmente (línea editorial, inspirada en
-hunterdouglas.com.ar), pero **antes de darlas por terminadas hay que
-conectarlas** a `products`, `product_variants`, `orders` y
-`order_items` según corresponda, usando el cliente único de Supabase y
-respetando que los precios/totales se calculan en servidor.
+## Órdenes
 
-Lo que SÍ está conectado de verdad:
-- `/api/ordenes` (POST) — crea una orden con precio recalculado server-side
-- `/api/ordenes/[id]/estado` (PATCH) — cambia el estado de una orden
-- `/cotizar/mis-cotizaciones` — lee `orders` + `order_items` reales
-- `(public)/page.tsx` (home) y `login`/`register` — conectados
+La tabla vigente es `orders` y la columna de usuario vigente es `user_id`.
 
-## Migraciones SQL
+La API `/api/ordenes` recibe solamente:
 
-Viven en `supabase/migrations/`, en orden numérico. **No se borran** —
-aunque ya estén aplicadas en producción, quedan como documentación y
-para poder reconstruir el esquema desde cero si hace falta. Si cambiás
-el esquema, agregás una migración nueva con el próximo número, nunca
-edites una vieja que ya se corrió.
+- `varianteId`
+- `cantidad`
+- `notas`
+- `status`
 
-Historial:
-- `0001` — tabla `profiles`, RLS inicial, función de precios, primera
-  versión de RLS sobre `ordenes`/`items_orden`/`productos`/`variantes_producto`
-- `0002` — adapta todo a la columna real `role` (no `rol`)
-- `0003` — hace robustas las migraciones anteriores (idempotencia)
-- `0004` — renombra `items_orden`→`order_items`, `productos`→`products`,
-  `variantes_producto`→`product_variants`, y actualiza toda la RLS y la
-  función de precios a los nombres nuevos. **Este es el estado final
-  vigente.**
+El precio y total se resuelven en servidor.
 
-## Antes de tocar este repo con otra herramienta
+Los items se persisten actualmente en `items_orden` con:
 
-1. Leé este archivo entero.
-2. Antes de asumir un nombre de tabla/columna, buscalo en el código real
-   (`grep -rn '.from("' src`), no confíes en lo que dice un chat viejo.
-3. Si vas a renombrar algo en Supabase, hacelo vía una migración nueva
-   en `supabase/migrations/`, nunca solo a mano en el dashboard sin
-   dejar rastro — si lo hacés a mano igual, actualizá este documento.
-4. Corré `npx tsc --noEmit`, `npx eslint .` y `npx next build` antes de
-   pushear. Si algo no compila, no lo subas.
-5. Si tocás `src/proxy.ts`, el navbar, o cualquier chequeo de rol —
-   fijate que TODO el código relevante use la misma fuente
-   (`profiles.role`, nunca `user_metadata`).
+- `orden_id`
+- `variante_id`
+- `cantidad`
+- `precio_unitario`
+- `total`
+
+## Rutas
+
+Las rutas administrativas viven en `src/app/admin/...` sin route group entre
+paréntesis. Por eso las URLs reales son:
+
+- `/admin/dashboard`
+- `/admin/productos`
+- `/admin/ordenes`
+- `/admin/taller`
+
+No volver a moverlas a `src/app/(admin)/...`: `(admin)` sería un route group y
+no formaría parte de la URL.
+
+## Proxy
+
+Next.js 16.3.2 utiliza `src/proxy.ts` con export `proxy`.
+
+El proxy protege `/admin/*` y consulta el rol desde `profiles.role`.
+
+## Clientes Supabase
+
+Browser:
+
+```ts
+import { supabase } from "@/lib/supabase/client";
+```
+
+Server Components / Route Handlers:
+
+```ts
+import { createClient } from "@/lib/supabase-server";
+```
+
+No introducir un cliente paralelo basado en `createClient()` plano de
+`@supabase/supabase-js` con sesión independiente en localStorage.
+
+## Estado funcional del proyecto
+
+Conectado a Supabase:
+
+- `/` catálogo público
+- `/login`
+- `/register`
+- `/cotizar`
+- `/cotizar/mis-cotizaciones`
+- `/api/ordenes`
+- `/api/ordenes/[id]/estado`
+
+Interfaz administrativa en proceso de integración:
+
+- `/admin/dashboard`
+- `/admin/productos`
+- `/admin/ordenes`
+- `/admin/taller`
+
+Estas pantallas contienen todavía componentes visuales y/o datos de ejemplo.
+El objetivo es conservar el lenguaje visual pero conectar progresivamente
+cada módulo al esquema REAL descrito arriba.
+
+## Sistema visual
+
+La dirección estética toma como referencia el lenguaje editorial de sitios de
+alta gama de control solar: mucho espacio negativo, tipografía serif para
+mensajes de marca, sans-serif limpia para operación, paleta marfil/arena,
+negro carbón y un acento metálico cálido.
+
+La referencia externa es Hunter Douglas Argentina, especialmente su combinación
+de producto + arquitectura + inspiración + llamado a cotizar. No se copian
+componentes, textos ni identidad de marca; se toma únicamente como referencia
+visual y de jerarquía de contenido.
+
+La plataforma Ciao Sole debe mantener una identidad propia y priorizar la
+cotización, la personalización, el control de precios por rol y la operación
+interna.
+
+## Migraciones
+
+Las migraciones históricas no deben editarse después de haber sido ejecutadas.
+
+El repositorio contiene:
+
+- `0001_roles_seguros_y_precios.sql`
+- `0002_ajustar_columna_role.sql`
+- `0003_reasegurar_rls.sql`
+- `0004_unificar_nombres_ingles.sql`
+
+Sin embargo, el historial real de migraciones registrado actualmente en
+Supabase contiene solamente:
+
+- `fase_2_seguridad_roles_rls`
+- `fix_rls_profiles_recursion`
+
+Por lo tanto, las cuatro migraciones del repositorio deben considerarse
+**documentación histórica/no aplicada** hasta sincronizar formalmente el
+historial de migraciones. No ejecutar `0004` como si fuera una migración
+pendiente.
+
+Si se modifica el esquema real, agregar una migración nueva y verificarla
+contra Supabase antes de tocar datos de producción.
+
+## Antes de subir cambios
+
+Ejecutar:
+
+```bash
+npx tsc --noEmit
+npx eslint .
+npm run build
+```
+
+Y, para cambios de Supabase, comprobar también el esquema real y las policies
+antes de modificar código que dependa de ellas.
