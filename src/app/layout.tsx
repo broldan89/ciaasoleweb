@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { CarritoProvider } from "@/context/CarritoContext";
+import Navbar from "@/components/Navbar"; // Aquí importamos el componente
 
 export const metadata: Metadata = {
-  title: "CIAO SOLE",
-  description: "Cortinas y persianas",
+  title: "Ciao Sole",
+  description: "Ciao Sole Web",
 };
 
 export default function RootLayout({
@@ -15,7 +15,8 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <CarritoProvider>{children}</CarritoProvider>
+        <Navbar />
+        {children}
       </body>
     </html>
   );

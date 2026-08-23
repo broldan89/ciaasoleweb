@@ -1,35 +1,33 @@
 "use client";
 import { useCarrito } from "@/context/CarritoContext";
 
-interface AgregarCarritoProps {
-  varianteId: string;
-  nombre: string;
-  precio: number;
-}
-
 export default function AgregarCarrito({
   varianteId,
   nombre,
   precio,
-}: AgregarCarritoProps) {
+}: {
+  varianteId: string;
+  nombre: string;
+  precio: number;
+}) {
   const { agregarItem } = useCarrito();
 
-  const manejarClick = () => {
+  const handleAgregar = () => {
     agregarItem({
-      varianteId,
-      nombre,
+      varianteId: varianteId,
+      nombre: nombre,
       cantidad: 1,
       precioUnitario: precio,
-      total: precio,
+      total: precio, // O calculado según tu lógica (precio * cantidad)
     });
   };
 
   return (
     <button
-      onClick={manejarClick}
-      className="bg-yellow-400 text-black font-bold px-4 py-2 rounded mt-2"
+      onClick={handleAgregar}
+      className="px-4 py-1.5 text-sm font-medium text-white bg-stone-900 hover:bg-stone-700 transition-colors duration-200 rounded-none"
     >
-      Agregar al carrito
+      Agregar
     </button>
   );
 }

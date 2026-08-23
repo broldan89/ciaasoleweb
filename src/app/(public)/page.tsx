@@ -21,9 +21,6 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Traemos el rol una sola vez, solo para decidir la etiqueta visual
-  // ("Precio mayorista"). El precio en sí NUNCA sale de acá: sale de
-  // obtener_precio_variante(), que ya sabe el rol del lado del servidor.
   let esMayorista = false;
   if (user) {
     const { data: perfil } = await supabase
@@ -34,31 +31,42 @@ export default async function HomePage() {
     esMayorista = perfil?.role === "mayorista" || perfil?.role === "admin";
   }
 
-  // variantes_publico es una vista que solo expone precio_publico —
-  // precio_mayorista nunca llega a este componente ni al HTML/RSC payload.
   const { data: productos } = await supabase
     .from("productos")
-    .select("id, nombre, descripcion, variantes_publico(id, producto_id, atributos)")
+    .select(
+      "id, nombre, descripcion, variantes_publico(id, producto_id, atributos)",
+    )
     .eq("is_active", true)
     .returns<Producto[]>();
 
   return (
-    <div className="max-w-7xl mx-auto p-8">
-      <div className="text-center mb-12">
-        <h1 className="text-5xl font-bold mb-4">CIAO SOLE</h1>
-        <p className="text-gray-600 text-lg">Cortinas y persianas a medida</p>
+    <div className="max-w-6xl mx-auto px-6 py-16 md:py-24">
+      {/* Encabezado */}
+      <div className="text-center mb-16 md:mb-20">
+        <h1 className="font-serif text-6xl md:text-7xl font-light tracking-wide text-stone-900">
+          CIAO SOLE
+        </h1>
+        <p className="mt-3 text-stone-500 text-lg md:text-xl italic font-light tracking-wider">
+          Cortinas y persianas a medida
+        </p>
+        <div className="mt-6 w-16 h-0.5 bg-stone-300 mx-auto" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* Grid de productos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
         {productos?.map((producto) => (
           <div
             key={producto.id}
-            className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow"
+            className="group border border-stone-200 rounded-none p-6 hover:border-stone-400 transition-colors duration-300 bg-white"
           >
-            <h2 className="text-xl font-bold mb-2">{producto.nombre}</h2>
-            <p className="text-gray-600 mb-4">{producto.descripcion}</p>
+            <h2 className="font-serif text-xl font-normal text-stone-800 mb-2">
+              {producto.nombre}
+            </h2>
+            <p className="text-stone-500 text-sm leading-relaxed mb-4">
+              {producto.descripcion}
+            </p>
 
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               {producto.variantes_publico?.map((variante) => (
                 <VarianteRow
                   key={variante.id}
@@ -70,6 +78,15 @@ export default async function HomePage() {
             </div>
           </div>
         ))}
+
+        {(!productos || productos.length === 0) && (
+          <div className="col-span-full text-center py-16 text-stone-400">
+            <p className="font-serif text-xl">Próximamente disponibles</p>
+            <p className="text-sm mt-1">
+              Estamos actualizando nuestra colección
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -90,8 +107,8 @@ async function VarianteRow({
   });
 
   return (
-    <div className="border-t pt-3">
-      <p className="text-sm text-gray-500 mb-1">
+    <div className="pt-3 border-t border-stone-100">
+      <p className="text-xs text-stone-400 mb-1 font-mono">
         {JSON.stringify(variante.atributos)}
       </p>
       <div className="flex items-center justify-between">

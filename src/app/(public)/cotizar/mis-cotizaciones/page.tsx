@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 interface ItemOrden {
@@ -34,9 +34,9 @@ export default function MisCotizacionesPage() {
       }
 
       const { data } = await supabase
-        .from("ordenes")
+        .from("orders")
         .select("*, items_orden(*)")
-        .eq("usuario_id", user.id)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       setOrdenes(data || []);

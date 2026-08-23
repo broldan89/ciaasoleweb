@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -19,24 +19,41 @@ export default function LoginPage() {
     });
 
     if (error) {
-      // Antes esto fallaba en silencio: si el login no funcionaba (mail
-      // mal escrito, contraseña incorrecta, email sin confirmar) el botón
-      // "no hacía nada" porque nunca se mostraba el error real.
       alert(`No se pudo iniciar sesión: ${error.message}`);
       console.error("Error de login:", error);
       setEnviando(false);
       return;
     }
 
-    // Redirige según el rol real (tabla profiles, no user_metadata) — así
-    // un admin va directo al panel en vez de a "mis cotizaciones".
-    const { data: perfil } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
+    // Usamos el usuario directamente de la respuesta del login (data.user)
+    const user = data.user;
 
-    router.push(perfil?.role === "admin" ? "/admin/dashboard" : "/cotizar/mis-cotizaciones");
+    try {
+      if (!user) return; // Seguridad extra
+
+      const { data: perfil, error: perfilError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (perfilError) {
+        console.error(
+          "Error al obtener perfil:",
+          JSON.stringify(perfilError, null, 2),
+        );
+        router.push("/cotizar/mis-cotizaciones");
+        return;
+      }
+
+      router.push(
+        perfil?.role === "admin"
+          ? "/admin/dashboard"
+          : "/cotizar/mis-cotizaciones",
+      );
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (

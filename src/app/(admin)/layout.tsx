@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
+import "./globals.css";
 
 export default async function AdminLayout({
   children,
