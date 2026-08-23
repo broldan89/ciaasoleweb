@@ -1,107 +1,284 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-
-interface ItemOrden {
-  id: string;
-  variante_id: string;
-  precio_unitario: number;
-  cantidad: number;
-  total: number;
-}
-
-interface Orden {
-  id: string;
-  status: string;
-  total: number;
-  created_at: string;
-  items_orden?: ItemOrden[];
-}
 
 export default function MisCotizacionesPage() {
-  const router = useRouter();
-  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [ordenes, setOrdenes] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    const cargar = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
+    async function obtenerCotizaciones() {
+      try {
+        setCargando(true);
+
+        // 1. Intentamos consultar la tabla principal de cotizaciones
+        let { data, error } = await supabase
+          .from("cotizaciones")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        // Fallback en caso de que la tabla se llame 'ordenes'
+        if (error || !data) {
+          const resOrdenes = await supabase
+            .from("ordenes")
+            .select("*")
+            .order("created_at", { ascending: false });
+          data = resOrdenes.data;
+        }
+
+        if (!data || data.length === 0) {
+          setOrdenes([]);
+          return;
+        }
+
+        // 2. Traemos los items para cada cotización/orden encontrada
+        const ordenesConItems = await Promise.all(
+          data.map(async (orden: any) => {
+            // Buscamos items asociados
+            const { data: itemsData } = await supabase
+              .from("items_cotizacion")
+              .select("*")
+              .eq("cotizacion_id", orden.id);
+
+            // Si no encontró en items_cotizacion, probamos en orden_items o items
+            let itemsFinales = itemsData;
+
+            if (!itemsFinales || itemsFinales.length === 0) {
+              const fallbackItems = await supabase
+                .from("items")
+                .select("*")
+                .eq("orden_id", orden.id);
+              itemsFinales = fallbackItems.data;
+            }
+
+            return {
+              ...orden,
+              items: itemsFinales || [],
+            };
+          }),
+        );
+
+        setOrdenes(ordenesConItems);
+      } catch (err) {
+        console.error("Error cargando cotizaciones:", err);
+      } finally {
+        setCargando(false);
       }
+    }
 
-      const { data } = await supabase
-        .from("orders")
-        .select("*, items_orden(*)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+    obtenerCotizaciones();
+  }, []);
 
-      setOrdenes(data || []);
-    };
-
-    cargar();
-  }, [router]);
+  if (cargando) {
+    return (
+      <div
+        style={{
+          maxWidth: "800px",
+          margin: "4rem auto",
+          padding: "0 1rem",
+          color: "#86868B",
+          textAlign: "center",
+        }}
+      >
+        Cargando cotizaciones...
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Mis Cotizaciones</h1>
-      <div className="space-y-6">
-        {ordenes.map((orden) => (
-          <div key={orden.id} className="border rounded p-4">
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-bold">
-                {new Date(orden.created_at).toLocaleDateString("es-AR")}
-              </span>
-              <span
-                className={`px-2 py-1 rounded text-xs font-bold ${
-                  orden.status === "cotizacion"
-                    ? "bg-blue-100 text-blue-800"
-                    : orden.status === "aprobada"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                }`}
+    <div
+      style={{ maxWidth: "800px", margin: "0 auto", padding: "2.5rem 1rem" }}
+    >
+      <h1
+        style={{
+          fontSize: "1.75rem",
+          fontWeight: "700",
+          marginBottom: "2rem",
+          color: "#1D1D1F",
+        }}
+      >
+        Mis Cotizaciones
+      </h1>
+
+      {ordenes.length === 0 ? (
+        <p style={{ color: "#86868B" }}>
+          No tenés cotizaciones registradas aún.
+        </p>
+      ) : (
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
+        >
+          {ordenes.map((orden) => (
+            <div
+              key={orden.id}
+              style={{
+                border: "1px solid #E8E8ED",
+                borderRadius: "12px",
+                padding: "1.5rem",
+                backgroundColor: "#FFFFFF",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "1.25rem",
+                }}
               >
-                {orden.status === "cotizacion"
-                  ? "En revisión"
-                  : orden.status === "aprobada"
-                    ? "Aprobada"
-                    : "Facturada"}
-              </span>
-              <div className="mt-4">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="py-2">Producto</th>
-                      <th>Precio</th>
-                      <th>Cantidad</th>
-                      <th>Total</th>
+                <span style={{ fontWeight: "600", fontSize: "15px" }}>
+                  {new Date(orden.created_at).toLocaleDateString("es-AR")}
+                </span>
+                <span
+                  style={{
+                    backgroundColor: "#DCFCE7",
+                    color: "#166534",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    padding: "0.25rem 0.65rem",
+                    borderRadius: "4px",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {orden.estado || "Aprobada"}
+                </span>
+              </div>
+
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "14px",
+                  marginBottom: "1.25rem",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      borderBottom: "1px solid #E8E8ED",
+                      textAlign: "left",
+                      color: "#86868B",
+                    }}
+                  >
+                    <th style={{ paddingBottom: "0.5rem", fontWeight: "500" }}>
+                      Variante
+                    </th>
+                    <th
+                      style={{
+                        paddingBottom: "0.5rem",
+                        fontWeight: "500",
+                        textAlign: "right",
+                      }}
+                    >
+                      Precio
+                    </th>
+                    <th
+                      style={{
+                        paddingBottom: "0.5rem",
+                        fontWeight: "500",
+                        textAlign: "center",
+                      }}
+                    >
+                      Cantidad
+                    </th>
+                    <th
+                      style={{
+                        paddingBottom: "0.5rem",
+                        fontWeight: "500",
+                        textAlign: "right",
+                      }}
+                    >
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orden.items && orden.items.length > 0 ? (
+                    orden.items.map((item: any, idx: number) => {
+                      const precio = item.precio_unitario || item.precio || 0;
+                      const subtotal = precio * (item.cantidad || 1);
+                      const titulo =
+                        item.variante_id ||
+                        item.descripcion ||
+                        item.nombre ||
+                        `Item #${idx + 1}`;
+
+                      return (
+                        <tr
+                          key={item.id || idx}
+                          style={{ borderBottom: "1px solid #F8F8FA" }}
+                        >
+                          <td
+                            style={{ padding: "0.75rem 0", color: "#1D1D1F" }}
+                          >
+                            {titulo}
+                          </td>
+                          <td
+                            style={{
+                              padding: "0.75rem 0",
+                              textAlign: "right",
+                              color: "#1D1D1F",
+                            }}
+                          >
+                            ${precio}
+                          </td>
+                          <td
+                            style={{
+                              padding: "0.75rem 0",
+                              textAlign: "center",
+                              color: "#1D1D1F",
+                            }}
+                          >
+                            {item.cantidad}
+                          </td>
+                          <td
+                            style={{
+                              padding: "0.75rem 0",
+                              textAlign: "right",
+                              fontWeight: "500",
+                              color: "#1D1D1F",
+                            }}
+                          >
+                            ${subtotal}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        style={{
+                          textAlign: "center",
+                          padding: "1rem 0",
+                          color: "#86868B",
+                        }}
+                      >
+                        Sin detalle de productos
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {orden.items_orden?.map((item) => (
-                      <tr key={item.id} className="border-b">
-                        <td className="py-2">{item.variante_id}</td>
-                        <td>${item.precio_unitario}</td>
-                        <td>{item.cantidad}</td>
-                        <td>${item.total}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="mt-4 text-right font-bold text-xl">
-                  Total: ${orden.total}
-                </div>
+                  )}
+                </tbody>
+              </table>
+
+              <div
+                style={{
+                  textAlign: "right",
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  paddingTop: "0.75rem",
+                  borderTop: "1px solid #E8E8ED",
+                  color: "#1D1D1F",
+                }}
+              >
+                Total: ${orden.total}
               </div>
             </div>
-          </div>
-        ))}
-        {ordenes.length === 0 && (
-          <div className="text-gray-500">No hay cotizaciones.</div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

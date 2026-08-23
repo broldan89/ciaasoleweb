@@ -3,7 +3,12 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase-server";
 
 const bodySchema = z.object({
-  estado: z.enum(["cotizacion", "borrador", "aprobada", "facturada"]),
+  estado: z.enum([
+    "cotizacion",
+    "borrador",
+    "aprobada",
+    "facturada",
+  ]),
 });
 
 export async function PATCH(
@@ -11,6 +16,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
   const supabase = await createClient();
 
   const {
@@ -18,30 +24,53 @@ export async function PATCH(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+    return NextResponse.json(
+      {
+        error: "No autenticado.",
+      },
+      { status: 401 },
+    );
   }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  const parsed = bodySchema.safeParse(body);
+
   if (!parsed.success) {
-    return NextResponse.json({ error: "Estado inválido." }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "Estado inválido.",
+      },
+      { status: 400 },
+    );
   }
 
-  // La RLS ("ordenes_update_solo_admin") ya bloquea esto a nivel de base
-  // de datos si el usuario no es admin — acá solo damos un mensaje claro
-  // en vez de un error genérico de Postgres.
+  // La autorización real debe quedar protegida por RLS.
+  // Acá simplemente usamos la tabla real de Supabase.
   const { data, error } = await supabase
-    .from("ordenes")
-    .update({ status: parsed.data.estado })
+    .from("orders")
+    .update({
+      status: parsed.data.estado,
+    })
     .eq("id", id)
     .select()
     .single();
 
   if (error || !data) {
+    console.error(
+      "Error actualizando estado de orden:",
+      error,
+    );
+
     return NextResponse.json(
-      { error: "No se pudo actualizar el estado (¿tenés permisos de admin?)." },
+      {
+        error:
+          "No se pudo actualizar el estado. Verificá que tengas permisos de administrador.",
+      },
       { status: 403 },
     );
   }
 
-  return NextResponse.json({ orden: data });
+  return NextResponse.json({
+    orden: data,
+  });
 }

@@ -8,24 +8,37 @@ import { User } from "@supabase/supabase-js";
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
-  const [rol, setRol] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const router = useRouter();
+
+  const cargarPerfil = async (userId: string) => {
+    const { data: perfil, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error al obtener el rol del usuario:", error);
+      setRole(null);
+      return;
+    }
+
+    setRole(perfil?.role ?? null);
+  };
 
   useEffect(() => {
     const getUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       setUser(user);
 
       if (user) {
-        const { data: perfil } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        setRol(perfil?.role);
+        await cargarPerfil(user.id);
+      } else {
+        setRole(null);
       }
     };
 
@@ -33,17 +46,15 @@ export default function Navbar() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .maybeSingle()
-          .then(({ data }) => setRol(data?.role));
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+
+      setUser(currentUser);
+
+      if (currentUser) {
+        await cargarPerfil(currentUser.id);
       } else {
-        setRol(null);
+        setRole(null);
       }
     });
 
@@ -52,8 +63,10 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+
     setUser(null);
-    setRol(null);
+    setRole(null);
+
     router.push("/login");
   };
 
@@ -64,15 +77,16 @@ export default function Navbar() {
       </Link>
 
       <div className="flex gap-4">
-        <Link href="/cotizar/mis-cotizaciones">Mis Cotizaciones</Link>
+        {user && <Link href="/cotizar/mis-cotizaciones">Mis Cotizaciones</Link>}
 
-        {rol === "admin" && <Link href="/admin/dashboard">Panel Admin</Link>}
+        {role === "admin" && <Link href="/admin/dashboard">Panel Admin</Link>}
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 items-center">
         {user ? (
           <>
             <span className="text-gray-400">{user.email}</span>
+
             <button onClick={handleLogout} className="text-red-500">
               Cerrar sesión
             </button>

@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -11,6 +12,11 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (enviando) {
+      return;
+    }
+
     setEnviando(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -25,15 +31,18 @@ export default function LoginPage() {
       return;
     }
 
-    // Usamos el usuario directamente de la respuesta del login (data.user)
     const user = data.user;
 
-    try {
-      if (!user) return; // Seguridad extra
+    if (!user) {
+      alert("No se pudo obtener el usuario autenticado.");
+      setEnviando(false);
+      return;
+    }
 
+    try {
       const { data: perfil, error: perfilError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("role")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -42,17 +51,21 @@ export default function LoginPage() {
           "Error al obtener perfil:",
           JSON.stringify(perfilError, null, 2),
         );
+
         router.push("/cotizar/mis-cotizaciones");
         return;
       }
 
-      router.push(
-        perfil?.role === "admin"
-          ? "/admin/dashboard"
-          : "/cotizar/mis-cotizaciones",
-      );
+      if (perfil?.role === "admin") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/cotizar/mis-cotizaciones");
+      }
     } catch (error) {
-      console.error(error);
+      console.error("Error inesperado después del login:", error);
+      router.push("/cotizar/mis-cotizaciones");
+    } finally {
+      setEnviando(false);
     }
   };
 
@@ -63,6 +76,7 @@ export default function LoginPage() {
         className="bg-white p-8 rounded-lg shadow-lg w-96"
       >
         <h2 className="text-2xl font-bold mb-6 text-center">Acceso</h2>
+
         <input
           type="email"
           placeholder="Email"
@@ -71,6 +85,7 @@ export default function LoginPage() {
           className="w-full p-2 mb-4 border rounded"
           required
         />
+
         <input
           type="password"
           placeholder="Contraseña"
@@ -79,6 +94,7 @@ export default function LoginPage() {
           className="w-full p-2 mb-4 border rounded"
           required
         />
+
         <button
           type="submit"
           disabled={enviando}
@@ -86,6 +102,7 @@ export default function LoginPage() {
         >
           {enviando ? "Ingresando..." : "Ingresar"}
         </button>
+
         <div className="mt-4 text-center text-sm text-gray-600">
           <a href="/register" className="underline">
             Registrarse
