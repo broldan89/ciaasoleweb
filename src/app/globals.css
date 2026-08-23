@@ -1,11 +1,152 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: var(--font-inter), system-ui, sans-serif;
-  --font-serif: var(--font-playfair), serif;
+:root {
+  --cs-ivory: #f5f3ee;
+  --cs-paper: #fbfaf7;
+  --cs-white: #ffffff;
+  --cs-ink: #1b1b19;
+  --cs-charcoal: #30302d;
+  --cs-muted: #74736d;
+  --cs-line: #dedbd3;
+  --cs-sand: #e9e4d9;
+  --cs-gold: #b58a52;
+  --cs-gold-dark: #8f6a3e;
+  --cs-success: #4d6b57;
+  --cs-danger: #9b5c52;
 }
 
-/* Puedes agregar estilos globales ligeros aquí si quieres */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background-color: white;
+  margin: 0;
+  background: var(--cs-paper);
+  color: var(--cs-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: var(--cs-gold);
+  color: var(--cs-white);
+}
+
+.cs-eyebrow {
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cs-gold-dark);
+  font-weight: 700;
+}
+
+.cs-display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+}
+
+.cs-section {
+  width: min(1180px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.cs-rule {
+  border-color: var(--cs-line);
+}
+
+.cs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 24px;
+  border: 1px solid var(--cs-ink);
+  background: var(--cs-ink);
+  color: var(--cs-white);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.cs-button:hover {
+  background: var(--cs-gold-dark);
+  border-color: var(--cs-gold-dark);
+  transform: translateY(-1px);
+}
+
+.cs-button-secondary {
+  background: transparent;
+  color: var(--cs-ink);
+}
+
+.cs-button-secondary:hover {
+  background: var(--cs-ink);
+  color: var(--cs-white);
+}
+
+.cs-card {
+  border: 1px solid var(--cs-line);
+  background: var(--cs-white);
+}
+
+.cs-input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--cs-line);
+  background: var(--cs-white);
+  color: var(--cs-ink);
+  padding: 0 14px;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.cs-input:focus {
+  border-color: var(--cs-gold);
+  box-shadow: 0 0 0 3px rgba(181, 138, 82, .12);
+}
+
+.cs-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--cs-charcoal);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.cs-fade-up {
+  animation: cs-fade-up .55s ease both;
+}
+
+@keyframes cs-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .cs-section {
+    width: min(100% - 32px, 1180px);
+  }
 }
