@@ -21,6 +21,14 @@ export default function RegisterPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      // OJO: esto viaja en user_metadata, que el usuario puede editar
+      // desde el navegador. Es seguro SOLO porque el trigger
+      // manejar_nuevo_usuario() (ver supabase/migrations) hardcodea
+      // role='cliente' sin importar lo que venga acá — rol_solicitado
+      // es apenas una solicitud pendiente, nunca el rol real. Si el día
+      // de mañana ese trigger cambia para leer 'role' de acá también,
+      // se reabre la vulnerabilidad que 0001_roles_seguros_y_precios.sql
+      // cerró (auto-asignarse "mayorista"/"admin" desde el cliente).
       options: { data: { rol_solicitado: rol } },
     });
 

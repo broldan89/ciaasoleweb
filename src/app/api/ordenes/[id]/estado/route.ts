@@ -32,6 +32,25 @@ export async function PATCH(
     );
   }
 
+  // Defensa en profundidad: no confiar únicamente en RLS. Esta
+  // verificación es redundante con la política de base de datos, pero
+  // el estado real de esa política vive fuera de este repo (ver
+  // auditoría de seguridad) — mejor no depender de una sola capa.
+  const { data: perfil, error: errorPerfil } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (errorPerfil || perfil?.role !== "admin") {
+    return NextResponse.json(
+      {
+        error: "No autorizado.",
+      },
+      { status: 403 },
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
 
@@ -44,8 +63,9 @@ export async function PATCH(
     );
   }
 
-  // La autorización real debe quedar protegida por RLS.
-  // Acá simplemente usamos la tabla real de Supabase.
+  // La política RLS de orders debería rechazar esto también si algo
+  // falla acá arriba — pero la verificación de rol ya se hizo explícita
+  // en el bloque anterior, no depende solo de RLS.
   const { data, error } = await supabase
     .from("orders")
     .update({
