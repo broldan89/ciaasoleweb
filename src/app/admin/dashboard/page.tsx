@@ -2,6 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { ESTADOS_VENTA_CONFIRMADA } from "@/lib/estados";
 
+// Componentes animados creados
+import { AnimatedMetric } from "@/components/AnimatedMetric";
+import {
+  AnimatedCard,
+  AnimatedProgressBar,
+} from "@/components/AnimatedDashboardWrapper";
+
 // ---------------------------------------------------------------------
 // Tipos mínimos de lo que se lee de cada tabla. Reflejan el esquema
 // REAL documentado en ARCHITECTURE.md, no el propuesto en 0004/0005.
@@ -67,15 +74,24 @@ async function cargarPulsoComercial() {
       new Date(o.created_at) < inicioMesActual,
   );
 
-  const facturacionMesActual = ventasMesActual.reduce((acc, o) => acc + o.total, 0);
-  const facturacionMesAnterior = ventasMesAnterior.reduce((acc, o) => acc + o.total, 0);
+  const facturacionMesActual = ventasMesActual.reduce(
+    (acc, o) => acc + o.total,
+    0,
+  );
+  const facturacionMesAnterior = ventasMesAnterior.reduce(
+    (acc, o) => acc + o.total,
+    0,
+  );
 
   const totalCotizaciones = ordenes.length;
   const totalVentas = ordenes.filter(esVenta).length;
-  const tasaConversion = totalCotizaciones > 0 ? totalVentas / totalCotizaciones : null;
+  const tasaConversion =
+    totalCotizaciones > 0 ? totalVentas / totalCotizaciones : null;
 
   const ticketPromedio =
-    ventasMesActual.length > 0 ? facturacionMesActual / ventasMesActual.length : null;
+    ventasMesActual.length > 0
+      ? facturacionMesActual / ventasMesActual.length
+      : null;
 
   const haceSieteDias = new Date();
   haceSieteDias.setDate(haceSieteDias.getDate() - 7);
@@ -125,7 +141,8 @@ async function cargarCatalogoYDemanda() {
 
   const demandaPorProducto = new Map<string, number>();
   for (const item of items) {
-    const nombre = item.variantes_producto?.productos?.nombre ?? "Sin identificar";
+    const nombre =
+      item.variantes_producto?.productos?.nombre ?? "Sin identificar";
     demandaPorProducto.set(
       nombre,
       (demandaPorProducto.get(nombre) ?? 0) + item.cantidad,
@@ -247,7 +264,9 @@ export default async function DashboardPage() {
             <MetricTile
               label="Ticket promedio"
               valor={
-                comercial.ticketPromedio === null ? "—" : moneda.format(comercial.ticketPromedio)
+                comercial.ticketPromedio === null
+                  ? "—"
+                  : moneda.format(comercial.ticketPromedio)
               }
               detalle="Sobre ventas confirmadas este mes"
             />
@@ -273,11 +292,14 @@ export default async function DashboardPage() {
           <code>orders.production_status</code> y la tabla{" "}
           <code>production_events</code> propuestas en{" "}
           <code>supabase/migrations/0005_dashboard_metricas.sql</code>. Ahí se
-          va a poder ver cuántas órdenes hay en cada etapa de taller, el
-          tiempo promedio en cada una y cuáles están estancadas — antes de
-          eso mostrar números acá sería inventar datos.
+          va a poder ver cuántas órdenes hay en cada etapa de taller, el tiempo
+          promedio en cada una y cuáles están estancadas — antes de eso mostrar
+          números acá sería inventar datos.
           <div className="mt-5">
-            <Link href="/admin/taller" className="cs-button cs-button-secondary">
+            <Link
+              href="/admin/taller"
+              className="cs-button cs-button-secondary"
+            >
               Ver cola de producción actual
             </Link>
           </div>
@@ -319,9 +341,14 @@ export default async function DashboardPage() {
               ) : (
                 <ol className="mt-4 space-y-3">
                   {catalogo.rankingDemanda.map(([nombre, cantidad], i) => (
-                    <li key={nombre} className="flex items-center justify-between gap-4 border-b cs-rule pb-3 last:border-0 last:pb-0">
+                    <li
+                      key={nombre}
+                      className="flex items-center justify-between gap-4 border-b cs-rule pb-3 last:border-0 last:pb-0"
+                    >
                       <span className="text-sm">
-                        <span className="mr-2 text-[var(--cs-muted)]">{i + 1}.</span>
+                        <span className="mr-2 text-[var(--cs-muted)]">
+                          {i + 1}.
+                        </span>
                         {nombre}
                       </span>
                       <span className="text-xs font-bold uppercase tracking-[.08em] text-[var(--cs-muted)]">
@@ -354,7 +381,12 @@ export default async function DashboardPage() {
               detalle="Cuentas registradas"
             />
             {clientes.porRol.map(([rol, cantidad]) => (
-              <MetricTile key={rol} label={`Rol: ${rol}`} valor={String(cantidad)} detalle="Cuentas activas" />
+              <MetricTile
+                key={rol}
+                label={`Rol: ${rol}`}
+                valor={String(cantidad)}
+                detalle="Cuentas activas"
+              />
             ))}
             <MetricTile
               label="Solicitudes pendientes"
@@ -395,14 +427,16 @@ function MetricTile({
   valor,
   detalle,
   acento,
+  delay = 0,
 }: {
   label: string;
   valor: string;
   detalle: string;
   acento?: boolean;
+  delay?: number;
 }) {
   return (
-    <div className="bg-[var(--cs-white)] p-6 sm:p-7">
+    <AnimatedCard delay={delay} className="bg-[var(--cs-white)] p-6 sm:p-7">
       <p className="text-[10px] font-bold uppercase tracking-[.13em] text-[var(--cs-muted)]">
         {label}
       </p>
@@ -411,13 +445,12 @@ function MetricTile({
           acento ? "text-[var(--cs-gold-dark)]" : ""
         }`}
       >
-        {valor}
+        <AnimatedMetric valor={valor} />
       </p>
       <p className="mt-2 text-xs text-[var(--cs-muted)]">{detalle}</p>
-    </div>
+    </AnimatedCard>
   );
 }
-
 function EmptyState({ mensaje }: { mensaje: string }) {
   return (
     <div className="border border-dashed border-[var(--cs-line)] p-7 text-sm leading-6 text-[var(--cs-muted)]">

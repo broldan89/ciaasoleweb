@@ -3,46 +3,34 @@ import type {
   MedidasFabricacion,
 } from "./types";
 
-/**
- * Reglas actuales de fabricación.
- *
- * El motor trabaja exclusivamente en milímetros.
- *
- * Estas reglas representan la lógica actualmente confirmada:
- *
- * - Tela: descuento de 30 mm en ancho.
- * - Tela: adicional de 300 mm en alto.
- * - Caño: descuento de 25 mm en ancho.
- *
- * Cualquier regla adicional de fabricación que todavía no haya
- * sido confirmada debe incorporarse posteriormente.
- */
-
-const DESCUENTO_ANCHO_TELA_MM = 30;
-const ADICIONAL_ALTO_TELA_MM = 300;
-
-const DESCUENTO_ANCHO_CANO_MM = 25;
+const DESCUENTO_ANCHO_TELA_CM = 3;
+const ADICIONAL_ALTO_TELA_CM = 30;
+const DESCUENTO_ANCHO_CANO_CM = 2.5;
 
 export function calcularMedidasFabricacion(
   medida: MedidaCliente,
 ): MedidasFabricacion {
-  const { anchoMm, altoMm } = medida;
+  const { anchoCm, altoCm } = medida;
 
   if (
-    !Number.isFinite(anchoMm) ||
-    !Number.isFinite(altoMm) ||
-    anchoMm <= 0 ||
-    altoMm <= 0
+    !Number.isFinite(anchoCm) ||
+    !Number.isFinite(altoCm) ||
+    anchoCm <= 0 ||
+    altoCm <= 0
   ) {
     throw new Error(
-      "Las medidas del cliente deben ser números mayores a cero.",
+      "Las medidas del cliente deben ser mayores a cero.",
     );
   }
 
-  const anchoTela = anchoMm - DESCUENTO_ANCHO_TELA_MM;
-  const altoTela = altoMm + ADICIONAL_ALTO_TELA_MM;
+  const anchoTela =
+    anchoCm - DESCUENTO_ANCHO_TELA_CM;
 
-  const anchoCano = anchoMm - DESCUENTO_ANCHO_CANO_MM;
+  const altoTela =
+    altoCm + ADICIONAL_ALTO_TELA_CM;
+
+  const anchoCano =
+    anchoCm - DESCUENTO_ANCHO_CANO_CM;
 
   if (anchoTela <= 0 || anchoCano <= 0) {
     throw new Error(
@@ -52,14 +40,14 @@ export function calcularMedidasFabricacion(
 
   return {
     tela: {
-      anchoMm: anchoTela,
-      altoMm: altoTela,
+      anchoCm: anchoTela,
+      altoCm: altoTela,
     },
     cano: {
-      anchoMm: anchoCano,
+      anchoCm: anchoCano,
     },
     perfilContrapeso: {
-      anchoMm: anchoTela,
+      anchoCm: anchoTela,
     },
   };
 }

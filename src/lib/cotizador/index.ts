@@ -1,6 +1,7 @@
 export { calcularMedidasFabricacion } from "./fabricacion";
 export { calcularConsumoTela } from "./consumo";
 export { calcularPrecio } from "./precios";
+export { obtenerTelaPorId } from "./telas";
 
 export type {
   Role,

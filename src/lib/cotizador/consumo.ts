@@ -8,9 +8,9 @@ export function calcularConsumoTela(
   fabricacion: MedidasFabricacion,
   tela: Tela,
 ): ResultadoConsumo {
-  const ancho = fabricacion.tela.anchoMm;
-  const alto = fabricacion.tela.altoMm;
-  const anchoFabrica = tela.anchoFabricaMm;
+  const ancho = fabricacion.tela.anchoCm;
+  const alto = fabricacion.tela.altoCm;
+  const anchoFabrica = tela.anchoFabricaCm;
 
   if (
     !Number.isFinite(ancho) ||
@@ -28,37 +28,22 @@ export function calcularConsumoTela(
     };
   }
 
-  /*
-   * ORIENTACIÓN NORMAL
-   *
-   * El ancho de fabricación debe entrar dentro
-   * del ancho estándar de la tela.
-   */
+  // Orientación normal:
+  // el ancho de fabricación debe entrar en el ancho de fábrica.
   if (ancho <= anchoFabrica) {
     return {
       fabricable: true,
-      metrosLineales: alto / 1000,
+      metrosLineales: alto / 100,
       orientacion: "normal",
     };
   }
 
-  /*
-   * ORIENTACIÓN APAISADA
-   *
-   * Solo se evalúa si la tela permite apaisabilidad.
-   *
-   * En esta primera versión:
-   *
-   * - no se calcula optimización avanzada;
-   * - no se compara desperdicio;
-   * - no se evalúan múltiples paños;
-   * - simplemente se comprueba si la pieza puede entrar
-   *   girando 90°.
-   */
+  // Orientación apaisada:
+  // solamente se permite si la tela está marcada como apaisable.
   if (tela.apaisable && alto <= anchoFabrica) {
     return {
       fabricable: true,
-      metrosLineales: ancho / 1000,
+      metrosLineales: ancho / 100,
       orientacion: "apaisada",
     };
   }
@@ -66,17 +51,13 @@ export function calcularConsumoTela(
   /*
    * REGLA PENDIENTE DE DEFINICIÓN
    *
-   * Todavía no tenemos confirmación de:
+   * Todavía no tenemos confirmación de qué debe ocurrir cuando:
    *
-   * - qué ocurre cuando una tela no apaisable no entra;
-   * - qué ocurre cuando ninguna orientación simple permite fabricar;
-   * - cómo se calcula el consumo cuando existen cortes
-   *   o distribuciones más complejas;
-   * - cómo se aprovechan sobrantes;
-   * - cómo se optimiza el desperdicio entre diferentes
-   *   posibilidades de corte.
+   * - la tela no es apaisable y no entra en orientación normal, o
+   * - ninguna de las dos orientaciones simples permite fabricar la pieza.
    *
-   * Por lo tanto, no inventamos una fórmula.
+   * No inventamos una fórmula para orientaciones o cortes
+   * más complejos hasta contar con la información de fabricación.
    */
 
   return {

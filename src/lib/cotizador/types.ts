@@ -1,27 +1,27 @@
 export type Role = "cliente" | "revendedor" | "admin";
 
 export type MedidaCliente = {
-  anchoMm: number;
-  altoMm: number;
+  anchoCm: number;
+  altoCm: number;
 };
 
 export type MedidasFabricacion = {
   tela: {
-    anchoMm: number;
-    altoMm: number;
+    anchoCm: number;
+    altoCm: number;
   };
   cano: {
-    anchoMm: number;
+    anchoCm: number;
   };
   perfilContrapeso: {
-    anchoMm: number;
+    anchoCm: number;
   };
 };
 
 export type Tela = {
   id: string;
   nombre: string;
-  anchoFabricaMm: number;
+  anchoFabricaCm: number;
   apaisable: boolean;
 };
 

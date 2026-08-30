@@ -1,7 +1,9 @@
 "use client";
+
 import { createContext, useContext, useState, ReactNode } from "react";
 
-interface ItemCarrito {
+export interface ItemCarrito {
+  id: string;
   varianteId: string;
   nombre: string;
   cantidad: number;
@@ -11,8 +13,8 @@ interface ItemCarrito {
 
 interface CarritoContextType {
   items: ItemCarrito[];
-  agregarItem: (item: ItemCarrito) => void;
-  borrarItem: (varianteId: string) => void;
+  agregarItem: (item: Omit<ItemCarrito, "id">) => void;
+  borrarItem: (id: string) => void;
   borrarTodo: () => void;
   total: number;
 }
@@ -22,27 +24,20 @@ const CarritoContext = createContext<CarritoContextType | undefined>(undefined);
 export function CarritoProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ItemCarrito[]>([]);
 
-  const agregarItem = (item: ItemCarrito) => {
-    const existe = items.find((i) => i.varianteId === item.varianteId);
-    if (existe) {
-      setItems(
-        items.map((i) =>
-          i.varianteId === item.varianteId
-            ? {
-                ...i,
-                cantidad: i.cantidad + item.cantidad,
-                total: (i.cantidad + item.cantidad) * i.precioUnitario,
-              }
-            : i,
-        ),
-      );
-    } else {
-      setItems([...items, item]);
-    }
+  const agregarItem = (item: Omit<ItemCarrito, "id">) => {
+    const nuevoId = crypto.randomUUID();
+
+    setItems((actuales) => [
+      ...actuales,
+      {
+        ...item,
+        id: nuevoId,
+      },
+    ]);
   };
 
-  const borrarItem = (varianteId: string) => {
-    setItems(items.filter((i) => i.varianteId !== varianteId));
+  const borrarItem = (id: string) => {
+    setItems((actuales) => actuales.filter((item) => item.id !== id));
   };
 
   const borrarTodo = () => {
@@ -53,7 +48,13 @@ export function CarritoProvider({ children }: { children: ReactNode }) {
 
   return (
     <CarritoContext.Provider
-      value={{ items, agregarItem, borrarItem, borrarTodo, total }}
+      value={{
+        items,
+        agregarItem,
+        borrarItem,
+        borrarTodo,
+        total,
+      }}
     >
       {children}
     </CarritoContext.Provider>
@@ -62,14 +63,10 @@ export function CarritoProvider({ children }: { children: ReactNode }) {
 
 export function useCarrito() {
   const context = useContext(CarritoContext);
+
   if (!context) {
-    return {
-      items: [],
-      agregarItem: () => {},
-      borrarItem: () => {},
-      borrarTodo: () => {},
-      total: 0,
-    };
+    throw new Error("useCarrito debe utilizarse dentro de un CarritoProvider.");
   }
+
   return context;
 }
