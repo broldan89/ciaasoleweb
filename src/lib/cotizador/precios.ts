@@ -13,7 +13,7 @@ export function calcularPrecio(
 
   const precioConMargenBase = costo * (1 + MARGEN_BASE);
 
-  if (role === "revendedor") {
+  if (role === "mayorista") {
     return {
       costo,
       margenBase: MARGEN_BASE,

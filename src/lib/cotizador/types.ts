@@ -1,4 +1,4 @@
-export type Role = "cliente" | "revendedor" | "admin";
+export type Role = "cliente" | "mayorista" | "admin";
 
 export type MedidaCliente = {
   anchoCm: number;
