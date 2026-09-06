@@ -43,14 +43,14 @@ export default function LoginPage() {
 
       if (perfilError) {
         console.error("Error al obtener perfil:", JSON.stringify(perfilError, null, 2));
-        router.push("/cotizar/mis-cotizaciones");
+        router.push("/panel");
         return;
       }
 
-      router.push(perfil?.role === "admin" ? "/admin/dashboard" : "/cotizar/mis-cotizaciones");
+      router.push(perfil?.role === "admin" ? "/admin/dashboard" : "/panel");
     } catch (error) {
       console.error("Error inesperado después del login:", error);
-      router.push("/cotizar/mis-cotizaciones");
+      router.push("/panel");
     } finally {
       setEnviando(false);
     }
