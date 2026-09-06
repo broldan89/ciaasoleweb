@@ -4,11 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Ignorar recursos estáticos y archivos.
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.includes(".")
-  ) {
+  if (pathname.startsWith("/_next") || pathname.includes(".")) {
     return NextResponse.next({ request });
   }
 
@@ -22,7 +18,6 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
@@ -42,27 +37,25 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Usuario no autenticado.
+  const isProtectedRoute =
+    pathname.startsWith("/panel") || pathname.startsWith("/admin");
+
   if (!user) {
-    if (pathname === "/login" || pathname === "/register") {
+    if (!isProtectedRoute) {
       return supabaseResponse;
     }
 
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-
     return NextResponse.redirect(url);
   }
 
-  // Usuario autenticado intentando volver al login/register.
   if (pathname === "/login" || pathname === "/register") {
     const url = request.nextUrl.clone();
-    url.pathname = "/cotizar/mis-cotizaciones";
-
+    url.pathname = "/panel";
     return NextResponse.redirect(url);
   }
 
-  // Protección de rutas administrativas.
   if (pathname.startsWith("/admin")) {
     const { data: perfil, error } = await supabase
       .from("profiles")
@@ -72,19 +65,14 @@ export async function proxy(request: NextRequest) {
 
     if (error) {
       console.error("Error obteniendo rol en proxy:", error);
-
       const url = request.nextUrl.clone();
-      url.pathname = "/cotizar/mis-cotizaciones";
-
+      url.pathname = "/panel";
       return NextResponse.redirect(url);
     }
 
-    const role = perfil?.role?.toLowerCase();
-
-    if (role !== "admin") {
+    if (perfil?.role?.toLowerCase() !== "admin") {
       const url = request.nextUrl.clone();
-      url.pathname = "/cotizar/mis-cotizaciones";
-
+      url.pathname = "/panel";
       return NextResponse.redirect(url);
     }
   }
