@@ -88,10 +88,10 @@ export default function Navbar() {
           </Link>
           {user && (
             <Link
-              href="/cotizar/mis-cotizaciones"
+              href="/panel"
               className="text-[11px] font-semibold uppercase tracking-[.14em] text-[var(--cs-charcoal)] transition-colors hover:text-[var(--cs-gold-dark)]"
             >
-              Mis cotizaciones
+              Mi cuenta
             </Link>
           )}
           {role === "admin" && (
@@ -153,8 +153,8 @@ export default function Navbar() {
               Cotizar
             </Link>
             {user && (
-              <Link href="/cotizar/mis-cotizaciones" onClick={() => setMenuOpen(false)} className="border-b border-[var(--cs-line)] py-4 text-xs font-semibold uppercase tracking-[.14em]">
-                Mis cotizaciones
+              <Link href="/panel" onClick={() => setMenuOpen(false)} className="border-b border-[var(--cs-line)] py-4 text-xs font-semibold uppercase tracking-[.14em]">
+                Mi cuenta
               </Link>
             )}
             {role === "admin" && (
