@@ -59,6 +59,33 @@ No crear policies administrativas que hagan `select` directo sobre `profiles` de
 
 `obtener_precio_variante(p_variante_id)` es la función vigente. El servidor determina el precio según `profiles.role`; el cliente nunca debe ser la fuente de verdad del precio persistido.
 
+## Motor de fabricación y consumo
+
+El motor de cotización separa cuatro etapas:
+
+```text
+medida del cliente
+      ↓
+medida de fabricación
+      ↓
+orientaciones posibles
+      ↓
+consumo optimizado
+```
+
+`calcularMedidasFabricacion()` concentra las reglas actuales del Roller. Los valores de descuento de ancho, adicional de alto y descuento de caño están centralizados en `REGLAS_FABRICACION_ROLLER` porque todavía deben validarse contra la ficha técnica definitiva de producción.
+
+`calcularConsumoTela()` nunca pide una decisión de orientación al cliente. Evalúa automáticamente:
+
+- orientación `normal`
+- orientación `apaisada`, solamente cuando `telas.apaisable = true`
+
+Cada orientación compara el ancho requerido contra `telas.ancho_fabrica_mm`. Si existen varias alternativas válidas, se elige la de menor consumo lineal. Si ninguna entra, el resultado conserva las evaluaciones y el motivo de rechazo de cada orientación.
+
+La interfaz muestra la orientación elegida como resultado del motor; no existe un botón manual de “verificar fabricación”. La API y el POST de `/api/ordenes` vuelven a ejecutar el mismo motor en servidor antes de persistir.
+
+Por ahora `ancho_fabrica_mm` representa el ancho disponible utilizado por el motor. No agregar una noción de “ancho útil” adicional hasta contar con una regla de producción confirmada; los 3 cm de descuento actuales pertenecen a la regla de fabricación de la pieza.
+
 ## Órdenes y cotización
 
 La tabla vigente es `orders` y la columna de usuario vigente es `user_id`.
@@ -89,7 +116,11 @@ El grupo `src/app/(public)/` contiene las rutas públicas. El nombre `(public)` 
 - `/register`
 - `/cotizar`
 
-`/cotizar` es el **único cotizador**. Toda la construcción de una nueva solicitud ocurre allí: productos, cantidades, medidas, fabricación, código postal, envío, observaciones y confirmación.
+`/cotizar` es el **único cotizador**. Toda la construcción de una nueva solicitud ocurre allí: selección de productos y variantes, cantidades, medidas, fabricación, código postal, envío, observaciones y confirmación.
+
+La selección de productos se muestra dentro del propio cotizador. Agregar una variante la incorpora inmediatamente al proyecto; no se necesita volver al catálogo de la home para continuar.
+
+El código postal dispara automáticamente la consulta de tarifas después de ingresar un valor válido. La primera opción disponible se selecciona inicialmente y el usuario puede cambiarla.
 
 ### Área privada de cliente/mayorista
 
