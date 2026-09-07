@@ -80,7 +80,7 @@ export default function CotizarPage() {
       const resultado = await respuesta.json().catch(() => null);
       if (respuesta.status === 401) { router.push("/login?redirect=/cotizar"); return; }
       if (!respuesta.ok) { setErrorCotizacion(resultado?.error ?? "Error al enviar la cotización."); return; }
-      borrarTodo(); router.push("/cotizar/mis-cotizaciones");
+      borrarTodo(); router.push("/panel/cotizaciones");
     } catch { setErrorCotizacion("No se pudo enviar la cotización. Intentá nuevamente."); } finally { setEnviando(false); }
   };
 
