@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase-server";
-import CotizarPageClient from "./CotizarPageClient";
+import CotizarWorkspaceClient from "./CotizarWorkspaceClient";
 
 interface ProductoRow {
   id: string;
@@ -66,5 +66,5 @@ export default async function CotizarPage() {
     }),
   );
 
-  return <CotizarPageClient catalogo={catalogo} />;
+  return <CotizarWorkspaceClient catalogo={catalogo} />;
 }
