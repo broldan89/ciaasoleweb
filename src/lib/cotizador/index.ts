@@ -9,6 +9,7 @@ export type {
   MedidasFabricacion,
   Tela,
   OrientacionTela,
+  EvaluacionOrientacion,
   ResultadoConsumo,
   ResultadoPrecio,
 } from "./types";
