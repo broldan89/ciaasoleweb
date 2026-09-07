@@ -3,9 +3,18 @@ import type {
   MedidasFabricacion,
 } from "./types";
 
-const DESCUENTO_ANCHO_TELA_CM = 3;
-const ADICIONAL_ALTO_TELA_CM = 30;
-const DESCUENTO_ANCHO_CANO_CM = 2.5;
+/**
+ * Reglas actuales de fabricación del Roller.
+ *
+ * Estos valores están centralizados deliberadamente porque todavía deben
+ * validarse contra la ficha técnica definitiva de producción. No deberían
+ * quedar repartidos dentro del motor de consumo.
+ */
+export const REGLAS_FABRICACION_ROLLER = {
+  descuentoAnchoTelaCm: 3,
+  adicionalAltoTelaCm: 30,
+  descuentoAnchoCanoCm: 2.5,
+} as const;
 
 export function calcularMedidasFabricacion(
   medida: MedidaCliente,
@@ -24,13 +33,13 @@ export function calcularMedidasFabricacion(
   }
 
   const anchoTela =
-    anchoCm - DESCUENTO_ANCHO_TELA_CM;
+    anchoCm - REGLAS_FABRICACION_ROLLER.descuentoAnchoTelaCm;
 
   const altoTela =
-    altoCm + ADICIONAL_ALTO_TELA_CM;
+    altoCm + REGLAS_FABRICACION_ROLLER.adicionalAltoTelaCm;
 
   const anchoCano =
-    anchoCm - DESCUENTO_ANCHO_CANO_CM;
+    anchoCm - REGLAS_FABRICACION_ROLLER.descuentoAnchoCanoCm;
 
   if (anchoTela <= 0 || anchoCano <= 0) {
     throw new Error(
