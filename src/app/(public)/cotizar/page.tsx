@@ -16,10 +16,6 @@ interface VarianteRow {
 export default async function CotizarPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const [{ data: productosData }, { data: variantesData }] =
     await Promise.all([
       supabase
@@ -69,8 +65,6 @@ export default async function CotizarPage() {
       };
     }),
   );
-
-  void user;
 
   return <CotizarPageClient catalogo={catalogo} />;
 }
