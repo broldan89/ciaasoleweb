@@ -42,7 +42,14 @@ export default function CotizarWorkspaceClient({
 }: {
   catalogo: CatalogoItem[];
 }) {
-  const { items, agregarItem, borrarItem, borrarTodo, total } = useCarrito();
+  const {
+    items,
+    agregarItem,
+    actualizarCantidad,
+    borrarItem,
+    borrarTodo,
+    total,
+  } = useCarrito();
   const router = useRouter();
   const [medidas, setMedidas] = useState<Record<string, EstadoMedida>>({});
   const [notas, setNotas] = useState("");
@@ -123,7 +130,6 @@ export default function CotizarWorkspaceClient({
           }
 
           const fabricable = Boolean(payload?.resultado?.fabricable);
-          const motivo = payload?.resultado?.motivo;
 
           setMedidas((actuales) => ({
             ...actuales,
@@ -136,8 +142,6 @@ export default function CotizarWorkspaceClient({
                 : "La medida ingresada no está disponible para fabricación.",
             },
           }));
-
-          void motivo;
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") return;
 
@@ -403,23 +407,53 @@ export default function CotizarWorkspaceClient({
 
                   return (
                     <article key={item.id} className="px-6 py-7 sm:px-8">
-                      <div className="flex items-start justify-between gap-5">
+                      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <span className="text-xs text-[var(--cs-muted)]">
                             {String(index + 1).padStart(2, "0")}
                           </span>
                           <h3 className="cs-display mt-1 text-2xl">{item.nombre}</h3>
                           <p className="mt-1 text-xs text-[var(--cs-muted)]">
-                            Cantidad: {item.cantidad} · ${item.precioUnitario.toLocaleString("es-AR")} c/u
+                            ${item.precioUnitario.toLocaleString("es-AR")} por unidad
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => borrarItem(item.id)}
-                          className="text-[10px] font-bold uppercase tracking-[.1em] text-[var(--cs-muted)] hover:text-[var(--cs-danger)]"
-                        >
-                          Quitar
-                        </button>
+
+                        <div className="flex items-center justify-between gap-4 sm:justify-end">
+                          <div className="flex items-center border border-[var(--cs-line)]">
+                            <button
+                              type="button"
+                              onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
+                              disabled={item.cantidad <= 1}
+                              aria-label={`Reducir cantidad de ${item.nombre}`}
+                              className="flex h-9 w-9 items-center justify-center text-lg text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                            >
+                              −
+                            </button>
+                            <span
+                              aria-live="polite"
+                              className="flex h-9 min-w-10 items-center justify-center border-x border-[var(--cs-line)] px-2 text-sm font-semibold"
+                            >
+                              {item.cantidad}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
+                              disabled={item.cantidad >= 99}
+                              aria-label={`Aumentar cantidad de ${item.nombre}`}
+                              className="flex h-9 w-9 items-center justify-center text-lg text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => borrarItem(item.id)}
+                            className="text-[10px] font-bold uppercase tracking-[.1em] text-[var(--cs-muted)] hover:text-[var(--cs-danger)]"
+                          >
+                            Quitar
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-7 grid gap-4 sm:grid-cols-2">
