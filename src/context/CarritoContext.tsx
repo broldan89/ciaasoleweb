@@ -14,6 +14,7 @@ export interface ItemCarrito {
 interface CarritoContextType {
   items: ItemCarrito[];
   agregarItem: (item: Omit<ItemCarrito, "id">) => void;
+  actualizarCantidad: (id: string, cantidad: number) => void;
   borrarItem: (id: string) => void;
   borrarTodo: () => void;
   total: number;
@@ -36,6 +37,22 @@ export function CarritoProvider({ children }: { children: ReactNode }) {
     ]);
   };
 
+  const actualizarCantidad = (id: string, cantidad: number) => {
+    const cantidadNormalizada = Math.max(1, Math.min(99, Math.floor(cantidad)));
+
+    setItems((actuales) =>
+      actuales.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              cantidad: cantidadNormalizada,
+              total: item.precioUnitario * cantidadNormalizada,
+            }
+          : item,
+      ),
+    );
+  };
+
   const borrarItem = (id: string) => {
     setItems((actuales) => actuales.filter((item) => item.id !== id));
   };
@@ -51,6 +68,7 @@ export function CarritoProvider({ children }: { children: ReactNode }) {
       value={{
         items,
         agregarItem,
+        actualizarCantidad,
         borrarItem,
         borrarTodo,
         total,
