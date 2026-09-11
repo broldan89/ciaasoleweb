@@ -21,12 +21,47 @@ type OpcionEnvio = {
   costo: number | string;
 };
 
+type EvaluacionOrientacion = {
+  orientacion: "normal" | "apaisada";
+  entra: boolean;
+  anchoRequeridoCm: number;
+  largoRequeridoCm: number;
+  metrosLineales: number;
+  motivo?: string;
+};
+
+type ResultadoFabricacion = {
+  tela?: {
+    anchoCm: number;
+    altoCm: number;
+  };
+  cano?: {
+    anchoCm: number;
+  };
+  perfilContrapeso?: {
+    anchoCm: number;
+  };
+};
+
+type ResultadoConsumo = {
+  fabricable: boolean;
+  metrosLineales: number;
+  orientacion: "normal" | "apaisada" | null;
+  motivo?: string;
+  evaluaciones: EvaluacionOrientacion[];
+};
+
 type EstadoMedida = {
   anchoCm: string;
   altoCm: string;
   calculando: boolean;
   fabricable: boolean | null;
   mensaje: string;
+  telaNombre: string;
+  anchoFabricaCm: number | null;
+  apaisable: boolean | null;
+  medidasFabricacion: ResultadoFabricacion | null;
+  resultado: ResultadoConsumo | null;
 };
 
 const estadoInicial = (): EstadoMedida => ({
@@ -35,7 +70,23 @@ const estadoInicial = (): EstadoMedida => ({
   calculando: false,
   fabricable: null,
   mensaje: "",
+  telaNombre: "",
+  anchoFabricaCm: null,
+  apaisable: null,
+  medidasFabricacion: null,
+  resultado: null,
 });
+
+const formatearNumero = (valor: number) =>
+  new Intl.NumberFormat("es-AR", {
+    maximumFractionDigits: 2,
+  }).format(valor);
+
+const nombreOrientacion = (orientacion: "normal" | "apaisada" | null) => {
+  if (orientacion === "apaisada") return "Apaisada";
+  if (orientacion === "normal") return "Normal";
+  return "Sin orientación válida";
+};
 
 export default function CotizarWorkspaceClient({
   catalogo,
@@ -71,14 +122,7 @@ export default function CotizarWorkspaceClient({
       const anchoCm = Number(estado.anchoCm.replace(",", "."));
       const altoCm = Number(estado.altoCm.replace(",", "."));
 
-      if (
-        !estado.anchoCm ||
-        !estado.altoCm ||
-        !Number.isFinite(anchoCm) ||
-        !Number.isFinite(altoCm) ||
-        anchoCm <= 0 ||
-        altoCm <= 0
-      ) {
+      if (!estado.anchoCm || !estado.altoCm || !Number.isFinite(anchoCm) || !Number.isFinite(altoCm) || anchoCm <= 0 || altoCm <= 0) {
         continue;
       }
 
@@ -93,6 +137,11 @@ export default function CotizarWorkspaceClient({
             calculando: true,
             fabricable: null,
             mensaje: "",
+            telaNombre: "",
+            anchoFabricaCm: null,
+            apaisable: null,
+            medidasFabricacion: null,
+            resultado: null,
           },
         }));
 
@@ -106,7 +155,7 @@ export default function CotizarWorkspaceClient({
           const respuesta = await fetch(`/api/ordenes?${params.toString()}`, {
             signal: controller.signal,
           });
-          const resultado = await respuesta.json().catch(() => null);
+          const payload = await respuesta.json().catch(() => null);
 
           if (!respuesta.ok) {
             setMedidas((actuales) => ({
@@ -115,13 +164,16 @@ export default function CotizarWorkspaceClient({
                 ...(actuales[item.id] ?? estadoInicial()),
                 calculando: false,
                 fabricable: false,
-                mensaje: "No pudimos validar esta medida.",
+                mensaje: payload?.error ?? "No pudimos validar esta medida.",
               },
             }));
             return;
           }
 
-          const fabricable = Boolean(resultado?.resultado?.fabricable);
+          const resultado = payload?.resultado as ResultadoConsumo | undefined;
+          const fabricable = Boolean(resultado?.fabricable);
+          const anchoFabricaMm = Number(payload?.tela?.anchoFabricaMm);
+
           setMedidas((actuales) => ({
             ...actuales,
             [item.id]: {
@@ -129,14 +181,17 @@ export default function CotizarWorkspaceClient({
               calculando: false,
               fabricable,
               mensaje: fabricable
-                ? "La medida está disponible para fabricación."
-                : "La medida no entra en una configuración de fabricación disponible.",
+                ? "La medida entra en una configuración válida de fabricación."
+                : (resultado?.motivo ?? "La medida no entra en una configuración de fabricación disponible."),
+              telaNombre: payload?.tela?.nombre ?? "",
+              anchoFabricaCm: Number.isFinite(anchoFabricaMm) ? anchoFabricaMm / 10 : null,
+              apaisable: typeof payload?.tela?.apaisable === "boolean" ? payload.tela.apaisable : null,
+              medidasFabricacion: (payload?.medidasFabricacion ?? null) as ResultadoFabricacion | null,
+              resultado: resultado ?? null,
             },
           }));
         } catch (error) {
-          if (error instanceof DOMException && error.name === "AbortError") {
-            return;
-          }
+          if (error instanceof DOMException && error.name === "AbortError") return;
           setMedidas((actuales) => ({
             ...actuales,
             [item.id]: {
@@ -188,7 +243,7 @@ export default function CotizarWorkspaceClient({
           setOpcionesEnvio([]);
           setShippingMethodId("");
           setShippingCost(0);
-          setErrorEnvio("No se pudieron consultar las opciones de envío.");
+          setErrorEnvio(resultado?.error ?? "No se pudieron consultar las opciones de envío.");
           return;
         }
 
@@ -221,11 +276,7 @@ export default function CotizarWorkspaceClient({
     };
   }, [codigoPostal]);
 
-  const actualizarMedida = (
-    itemId: string,
-    campo: "anchoCm" | "altoCm",
-    valor: string,
-  ) => {
+  const actualizarMedida = (itemId: string, campo: "anchoCm" | "altoCm", valor: string) => {
     setMedidas((actuales) => ({
       ...actuales,
       [itemId]: {
@@ -234,18 +285,21 @@ export default function CotizarWorkspaceClient({
         calculando: false,
         fabricable: null,
         mensaje: "",
+        telaNombre: "",
+        anchoFabricaCm: null,
+        apaisable: null,
+        medidasFabricacion: null,
+        resultado: null,
       },
     }));
   };
 
-  const todosFabricables =
-    items.length > 0 && items.every((item) => medidas[item.id]?.fabricable === true);
+  const todosFabricables = items.length > 0 && items.every((item) => medidas[item.id]?.fabricable === true);
   const totalEstimado = total + shippingCost;
 
   const manejarCotizacion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorCotizacion("");
-
     if (!items.length || enviando) return;
     if (!todosFabricables) {
       setErrorCotizacion("Completá las medidas y esperá la validación automática.");
@@ -275,7 +329,6 @@ export default function CotizarWorkspaceClient({
         }),
       });
       const resultado = await respuesta.json().catch(() => null);
-
       if (respuesta.status === 401) {
         router.push("/login?redirect=/cotizar");
         return;
@@ -284,7 +337,6 @@ export default function CotizarWorkspaceClient({
         setErrorCotizacion(resultado?.error ?? "No se pudo enviar la cotización.");
         return;
       }
-
       borrarTodo();
       router.push("/panel/cotizaciones");
     } catch {
@@ -300,7 +352,7 @@ export default function CotizarWorkspaceClient({
         <p className="cs-eyebrow">Cotizador</p>
         <h1 className="cs-display mt-3 text-5xl sm:text-6xl">Armá tu proyecto.</h1>
         <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--cs-muted)]">
-          Elegí los sistemas, definí las medidas y obtené una estimación de fabricación, envío y total en un mismo lugar.
+          Elegí los sistemas, definí las medidas y obtené una estimación técnica de fabricación, envío y total en un mismo lugar.
         </p>
       </div>
 
@@ -311,95 +363,51 @@ export default function CotizarWorkspaceClient({
             <h2 className="cs-display mt-2 text-2xl">Agregar sistemas</h2>
           </div>
           <p className="max-w-md text-sm leading-6 text-[var(--cs-muted)]">
-            Los productos agregados aparecen inmediatamente debajo para continuar con la configuración del proyecto.
+            Cada sistema agregado aparece inmediatamente debajo para completar sus medidas y validar su fabricación automáticamente.
           </p>
         </div>
-
         <div className="mt-6 divide-y divide-[var(--cs-line)] border-y border-[var(--cs-line)]">
           {catalogo.length ? catalogo.map((producto) => (
             <div key={producto.varianteId} className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs text-[var(--cs-muted)]">{producto.productoNombre}</p>
-                <p className="mt-1 text-sm font-semibold">{producto.nombre}</p>
-              </div>
-              <div className="flex items-center justify-between gap-5 sm:justify-end">
-                <span className="text-sm font-semibold">${producto.precio.toLocaleString("es-AR")}</span>
-                <button
-                  type="button"
-                  onClick={() => agregarItem({
-                    varianteId: producto.varianteId,
-                    nombre: `${producto.productoNombre} · ${producto.nombre}`,
-                    cantidad: 1,
-                    precioUnitario: producto.precio,
-                    total: producto.precio,
-                  })}
-                  className="cs-button"
-                >
-                  Agregar
-                </button>
-              </div>
+              <div><p className="text-xs text-[var(--cs-muted)]">{producto.productoNombre}</p><p className="mt-1 text-sm font-semibold">{producto.nombre}</p></div>
+              <div className="flex items-center justify-between gap-5 sm:justify-end"><span className="text-sm font-semibold">${producto.precio.toLocaleString("es-AR")}</span><button type="button" onClick={() => agregarItem({ varianteId: producto.varianteId, nombre: `${producto.productoNombre} · ${producto.nombre}`, cantidad: 1, precioUnitario: producto.precio, total: producto.precio })} className="cs-button">Agregar</button></div>
             </div>
-          )) : (
-            <p className="py-6 text-sm text-[var(--cs-muted)]">No hay productos publicados para cotizar.</p>
-          )}
+          )) : <p className="py-6 text-sm text-[var(--cs-muted)]">No hay productos publicados para cotizar.</p>}
         </div>
       </section>
 
       {!items.length ? (
-        <div className="cs-card mt-6 p-8 text-center sm:p-12">
-          <p className="cs-eyebrow">Proyecto vacío</p>
-          <h2 className="cs-display mt-3 text-3xl">Agregá al menos un sistema para comenzar.</h2>
-        </div>
+        <div className="cs-card mt-6 p-8 text-center sm:p-12"><p className="cs-eyebrow">Proyecto vacío</p><h2 className="cs-display mt-3 text-3xl">Agregá al menos un sistema para comenzar.</h2></div>
       ) : (
         <form onSubmit={manejarCotizacion} className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
           <div className="space-y-6">
             <section className="cs-card overflow-hidden">
-              <div className="border-b border-[var(--cs-line)] px-6 py-5 sm:px-8">
-                <p className="cs-eyebrow">01 / Proyecto</p>
-                <h2 className="cs-display mt-2 text-2xl">Configurá cada sistema</h2>
-              </div>
+              <div className="border-b border-[var(--cs-line)] px-6 py-5 sm:px-8"><p className="cs-eyebrow">01 / Proyecto</p><h2 className="cs-display mt-2 text-2xl">Configurá cada sistema</h2></div>
               <div className="divide-y divide-[var(--cs-line)]">
                 {items.map((item, index) => {
                   const estado = medidas[item.id] ?? estadoInicial();
+                  const evaluaciones = estado.resultado?.evaluaciones ?? [];
                   return (
                     <article key={item.id} className="px-6 py-7 sm:px-8">
-                      <div className="flex items-start justify-between gap-5">
-                        <div>
-                          <span className="text-xs text-[var(--cs-muted)]">{String(index + 1).padStart(2, "0")}</span>
-                          <h3 className="cs-display mt-1 text-2xl">{item.nombre}</h3>
-                          <p className="mt-1 text-xs text-[var(--cs-muted)]">Cantidad: {item.cantidad} · ${item.precioUnitario.toLocaleString("es-AR")} c/u</p>
-                        </div>
-                        <button type="button" onClick={() => borrarItem(item.id)} className="text-[10px] font-bold uppercase tracking-[.1em] text-[var(--cs-muted)] hover:text-[var(--cs-danger)]">Quitar</button>
-                      </div>
+                      <div className="flex items-start justify-between gap-5"><div><span className="text-xs text-[var(--cs-muted)]">{String(index + 1).padStart(2, "0")}</span><h3 className="cs-display mt-1 text-2xl">{item.nombre}</h3><p className="mt-1 text-xs text-[var(--cs-muted)]">Cantidad: {item.cantidad} · ${item.precioUnitario.toLocaleString("es-AR")} c/u</p></div><button type="button" onClick={() => borrarItem(item.id)} className="text-[10px] font-bold uppercase tracking-[.1em] text-[var(--cs-muted)] hover:text-[var(--cs-danger)]">Quitar</button></div>
+                      <div className="mt-7 grid gap-4 sm:grid-cols-2">{(["anchoCm", "altoCm"] as const).map((campo) => <div key={campo}><label className="cs-label" htmlFor={`${campo}-${item.id}`}>{campo === "anchoCm" ? "Ancho (cm)" : "Alto (cm)"}</label><input id={`${campo}-${item.id}`} inputMode="decimal" value={estado[campo]} onChange={(event) => actualizarMedida(item.id, campo, event.target.value)} className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]" placeholder={campo === "anchoCm" ? "Ej. 180" : "Ej. 220"} /></div>)}</div>
 
-                      <div className="mt-7 grid gap-4 sm:grid-cols-2">
-                        {(["anchoCm", "altoCm"] as const).map((campo) => (
-                          <div key={campo}>
-                            <label className="cs-label" htmlFor={`${campo}-${item.id}`}>
-                              {campo === "anchoCm" ? "Ancho (cm)" : "Alto (cm)"}
-                            </label>
-                            <input
-                              id={`${campo}-${item.id}`}
-                              inputMode="decimal"
-                              value={estado[campo]}
-                              onChange={(event) => actualizarMedida(item.id, campo, event.target.value)}
-                              className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]"
-                              placeholder={campo === "anchoCm" ? "Ej. 180" : "Ej. 220"}
-                            />
+                      <div className="mt-5 border-t border-[var(--cs-line)] pt-5">
+                        {estado.calculando ? <p className="text-xs text-[var(--cs-muted)]">Calculando configuración de fabricación...</p> : estado.fabricable === null ? <p className="text-xs text-[var(--cs-muted)]">La validación se realiza automáticamente al completar las medidas.</p> : (
+                          <div>
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><strong className={estado.fabricable ? "text-sm text-[var(--cs-ink)]" : "text-sm text-[var(--cs-danger)]"}>{estado.fabricable ? "FABRICABLE" : "NO FABRICABLE"}</strong><span className="text-sm text-[var(--cs-muted)]">{estado.mensaje}</span></div>
+                            {estado.fabricable && estado.resultado && estado.medidasFabricacion && (
+                              <div className="mt-5 grid gap-3 border-t border-[var(--cs-line)] pt-5 text-sm sm:grid-cols-2">
+                                <div><p className="cs-label">Orientación</p><p className="mt-1 font-semibold">{nombreOrientacion(estado.resultado.orientacion)}</p></div>
+                                <div><p className="cs-label">Consumo</p><p className="mt-1 font-semibold">{formatearNumero(estado.resultado.metrosLineales)} m lineales</p></div>
+                                <div><p className="cs-label">Tela de fabricación</p><p className="mt-1 font-semibold">{formatearNumero(estado.medidasFabricacion.tela?.anchoCm ?? 0)} × {formatearNumero(estado.medidasFabricacion.tela?.altoCm ?? 0)} cm</p></div>
+                                <div><p className="cs-label">Ancho disponible</p><p className="mt-1 font-semibold">{estado.anchoFabricaCm ? `${formatearNumero(estado.anchoFabricaCm)} cm` : "—"}</p><p className="mt-1 text-xs text-[var(--cs-muted)]">{estado.telaNombre}{estado.apaisable ? " · permite apaisado" : ""}</p></div>
+                              </div>
+                            )}
+                            {!estado.fabricable && evaluaciones.length > 0 && (
+                              <div className="mt-5 grid gap-3 border-t border-[var(--cs-line)] pt-5 sm:grid-cols-2">{evaluaciones.map((evaluacion) => <div key={evaluacion.orientacion} className="border border-[var(--cs-line)] p-4"><p className="cs-label">{nombreOrientacion(evaluacion.orientacion)}</p><p className="mt-2 text-sm font-semibold">Requiere {formatearNumero(evaluacion.anchoRequeridoCm)} cm de ancho</p><p className="mt-1 text-xs leading-5 text-[var(--cs-muted)]">Tela disponible: {estado.anchoFabricaCm ? `${formatearNumero(estado.anchoFabricaCm)} cm` : "—"} · Consumo teórico: {formatearNumero(evaluacion.metrosLineales)} m{evaluacion.motivo ? ` · ${evaluacion.motivo}` : ""}</p></div>)}</div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-4 border-t border-[var(--cs-line)] pt-4">
-                        {estado.calculando ? (
-                          <p className="text-xs text-[var(--cs-muted)]">Verificando disponibilidad de fabricación...</p>
-                        ) : estado.fabricable !== null ? (
-                          <div className={`text-xs leading-5 ${estado.fabricable ? "text-[var(--cs-ink)]" : "text-[var(--cs-danger)]"}`}>
-                            <strong>{estado.fabricable ? "Fabricable" : "No fabricable"}</strong>
-                            <span className="ml-2 text-[var(--cs-muted)]">{estado.mensaje}</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-[var(--cs-muted)]">La validación se realiza automáticamente al completar las medidas.</p>
                         )}
                       </div>
                     </article>
@@ -407,62 +415,16 @@ export default function CotizarWorkspaceClient({
                 })}
               </div>
             </section>
-
-            <section className="cs-card p-6 sm:p-8">
-              <p className="cs-eyebrow">02 / Observaciones</p>
-              <h2 className="cs-display mt-2 text-2xl">Detalles del proyecto</h2>
-              <label className="cs-label mt-6" htmlFor="notas">Observaciones</label>
-              <textarea id="notas" value={notas} onChange={(event) => setNotas(event.target.value)} maxLength={2000} className="mt-2 min-h-32 w-full resize-y border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]" placeholder="Ambientes, instalación, necesidades especiales u otras observaciones..." />
-            </section>
+            <section className="cs-card p-6 sm:p-8"><p className="cs-eyebrow">02 / Observaciones</p><h2 className="cs-display mt-2 text-2xl">Detalles del proyecto</h2><label className="cs-label mt-6" htmlFor="notas">Observaciones</label><textarea id="notas" value={notas} onChange={(event) => setNotas(event.target.value)} maxLength={2000} className="mt-2 min-h-32 w-full resize-y border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]" placeholder="Ambientes, instalación, necesidades especiales u otras observaciones..." /></section>
           </div>
-
-          <aside>
-            <section className="cs-card p-6 sm:p-7 lg:sticky lg:top-28">
-              <p className="cs-eyebrow">03 / Envío</p>
-              <h2 className="cs-display mt-2 text-2xl">Destino</h2>
-              <label className="cs-label mt-6" htmlFor="codigoPostal">Código postal</label>
-              <input
-                id="codigoPostal"
-                inputMode="numeric"
-                maxLength={5}
-                value={codigoPostal}
-                onChange={(event) => setCodigoPostal(event.target.value.replace(/\D/g, "").slice(0, 5))}
-                className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]"
-                placeholder="Ej. 1001"
-              />
-
-              {consultandoEnvio && <p className="mt-3 text-xs text-[var(--cs-muted)]">Consultando opciones de envío...</p>}
-              {opcionesEnvio.length > 0 && (
-                <div className="mt-5 space-y-2">
-                  <p className="cs-label">Método de envío</p>
-                  {opcionesEnvio.map((opcion) => (
-                    <label key={opcion.shipping_method_id} className="flex cursor-pointer items-start gap-3 border border-[var(--cs-line)] p-3">
-                      <input type="radio" name="shippingMethod" checked={shippingMethodId === opcion.shipping_method_id} onChange={() => {
-                        setShippingMethodId(opcion.shipping_method_id);
-                        setShippingCost(Number(opcion.costo));
-                      }} className="mt-1" />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center justify-between gap-3 text-sm font-semibold"><span>{opcion.metodo}</span><span>${Number(opcion.costo).toLocaleString("es-AR")}</span></span>
-                        <span className="mt-1 block text-xs text-[var(--cs-muted)]">{opcion.descripcion || opcion.proveedor}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              {errorEnvio && <p className="mt-3 text-xs leading-5 text-[var(--cs-danger)]">{errorEnvio}</p>}
-
-              <div className="mt-7 border-y border-[var(--cs-line)] py-5">
-                <div className="flex items-end justify-between gap-4"><span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Productos</span><strong className="text-sm">${total.toLocaleString("es-AR")}</strong></div>
-                <div className="mt-3 flex items-end justify-between gap-4"><span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Envío</span><strong className="text-sm">{shippingCost ? `$${shippingCost.toLocaleString("es-AR")}` : "A calcular"}</strong></div>
-                <div className="mt-5 flex items-end justify-between gap-4 border-t border-[var(--cs-line)] pt-5"><span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Total estimado</span><strong className="cs-display text-3xl">${totalEstimado.toLocaleString("es-AR")}</strong></div>
-              </div>
-
-              {errorCotizacion && <p className="mt-4 border border-[var(--cs-danger)]/30 bg-[var(--cs-danger)]/5 p-3 text-xs leading-5 text-[var(--cs-danger)]">{errorCotizacion}</p>}
-              <button type="submit" disabled={enviando || !todosFabricables || !shippingMethodId || consultandoEnvio} className="cs-button mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40">
-                {enviando ? "Enviando..." : "Solicitar cotización"}
-              </button>
-            </section>
-          </aside>
+          <aside><section className="cs-card p-6 sm:p-7 lg:sticky lg:top-28"><p className="cs-eyebrow">03 / Envío</p><h2 className="cs-display mt-2 text-2xl">Destino</h2><label className="cs-label mt-6" htmlFor="codigoPostal">Código postal</label><input id="codigoPostal" inputMode="numeric" maxLength={5} value={codigoPostal} onChange={(event) => setCodigoPostal(event.target.value.replace(/\D/g, "").slice(0, 5))} className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]" placeholder="Ej. 2000" />
+            {consultandoEnvio && <p className="mt-3 text-xs text-[var(--cs-muted)]">Consultando opciones de envío...</p>}
+            {opcionesEnvio.length > 0 && <div className="mt-5 space-y-2"><p className="cs-label">Método de envío</p>{opcionesEnvio.map((opcion) => <label key={opcion.shipping_method_id} className="flex cursor-pointer items-start gap-3 border border-[var(--cs-line)] p-3"><input type="radio" name="shippingMethod" checked={shippingMethodId === opcion.shipping_method_id} onChange={() => { setShippingMethodId(opcion.shipping_method_id); setShippingCost(Number(opcion.costo)); }} className="mt-1" /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-3 text-sm font-semibold"><span>{opcion.metodo}</span><span>${Number(opcion.costo).toLocaleString("es-AR")}</span></span><span className="mt-1 block text-xs text-[var(--cs-muted)]">{opcion.descripcion || opcion.proveedor}</span></span></label>)}</div>}
+            {errorEnvio && <p className="mt-3 text-xs leading-5 text-[var(--cs-danger)]">{errorEnvio}</p>}
+            <div className="mt-7 border-y border-[var(--cs-line)] py-5"><div className="flex items-end justify-between gap-4"><span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Productos</span><strong className="text-sm">${total.toLocaleString("es-AR")}</strong></div><div className="mt-3 flex items-end justify-between gap-4"><span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Envío</span><strong className="text-sm">{shippingCost ? `$${shippingCost.toLocaleString("es-AR")}` : "A calcular"}</strong></div><div className="mt-5 flex items-end justify-between gap-4 border-t border-[var(--cs-line)] pt-5"><span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Total estimado</span><strong className="cs-display text-3xl">${totalEstimado.toLocaleString("es-AR")}</strong></div></div>
+            {errorCotizacion && <p className="mt-4 border border-[var(--cs-danger)]/30 bg-[var(--cs-danger)]/5 p-3 text-xs leading-5 text-[var(--cs-danger)]">{errorCotizacion}</p>}
+            <button type="submit" disabled={enviando || !todosFabricables || !shippingMethodId || consultandoEnvio} className="cs-button mt-5 w-full disabled:cursor-not-allowed disabled:opacity-40">{enviando ? "Enviando..." : "Solicitar cotización"}</button>
+          </section></aside>
         </form>
       )}
     </div>
