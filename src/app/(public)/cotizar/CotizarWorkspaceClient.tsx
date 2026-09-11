@@ -419,19 +419,19 @@ export default function CotizarWorkspaceClient({
                         </div>
 
                         <div className="flex items-center justify-between gap-4 sm:justify-end">
-                          <div className="flex items-center border border-[var(--cs-line)]">
+                          <div className="flex h-11 items-stretch border border-[var(--cs-line)] bg-white">
                             <button
                               type="button"
                               onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
                               disabled={item.cantidad <= 1}
                               aria-label={`Reducir cantidad de ${item.nombre}`}
-                              className="flex h-9 w-9 items-center justify-center text-lg text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex w-11 items-center justify-center text-xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               −
                             </button>
                             <span
                               aria-live="polite"
-                              className="flex h-9 min-w-10 items-center justify-center border-x border-[var(--cs-line)] px-2 text-sm font-semibold"
+                              className="flex min-w-14 items-center justify-center border-x border-[var(--cs-line)] px-3 text-base font-semibold"
                             >
                               {item.cantidad}
                             </span>
@@ -440,7 +440,7 @@ export default function CotizarWorkspaceClient({
                               onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
                               disabled={item.cantidad >= 99}
                               aria-label={`Aumentar cantidad de ${item.nombre}`}
-                              className="flex h-9 w-9 items-center justify-center text-lg text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex w-11 items-center justify-center text-xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               +
                             </button>
