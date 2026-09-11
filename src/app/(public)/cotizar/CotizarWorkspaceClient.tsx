@@ -121,7 +121,7 @@ export default function CotizarWorkspaceClient({
             return;
           }
 
-          const fabricable = Boolean(resultado?.fabricable);
+          const fabricable = Boolean(resultado?.resultado?.fabricable);
           setMedidas((actuales) => ({
             ...actuales,
             [item.id]: {
