@@ -407,31 +407,69 @@ export default function CotizarWorkspaceClient({
 
                   return (
                     <article key={item.id} className="px-6 py-7 sm:px-8">
-                      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <span className="text-xs text-[var(--cs-muted)]">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <h3 className="cs-display mt-1 text-2xl">{item.nombre}</h3>
+                        <p className="mt-1 text-xs text-[var(--cs-muted)]">
+                          ${item.precioUnitario.toLocaleString("es-AR")} por unidad
+                        </p>
+                      </div>
+
+                      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_180px]">
                         <div>
-                          <span className="text-xs text-[var(--cs-muted)]">
-                            {String(index + 1).padStart(2, "0")}
-                          </span>
-                          <h3 className="cs-display mt-1 text-2xl">{item.nombre}</h3>
-                          <p className="mt-1 text-xs text-[var(--cs-muted)]">
-                            ${item.precioUnitario.toLocaleString("es-AR")} por unidad
-                          </p>
+                          <label className="cs-label" htmlFor={`anchoCm-${item.id}`}>
+                            Ancho (cm)
+                          </label>
+                          <input
+                            id={`anchoCm-${item.id}`}
+                            inputMode="decimal"
+                            value={estado.anchoCm}
+                            onChange={(event) =>
+                              actualizarMedida(item.id, "anchoCm", event.target.value)
+                            }
+                            className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]"
+                            placeholder="Ej. 180"
+                          />
                         </div>
 
-                        <div className="flex items-center justify-between gap-4 sm:justify-end">
-                          <div className="flex h-11 items-stretch border border-[var(--cs-line)] bg-white">
+                        <div>
+                          <label className="cs-label" htmlFor={`altoCm-${item.id}`}>
+                            Alto (cm)
+                          </label>
+                          <input
+                            id={`altoCm-${item.id}`}
+                            inputMode="decimal"
+                            value={estado.altoCm}
+                            onChange={(event) =>
+                              actualizarMedida(item.id, "altoCm", event.target.value)
+                            }
+                            className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]"
+                            placeholder="Ej. 220"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="cs-label" htmlFor={`cantidad-${item.id}`}>
+                            Cantidad
+                          </label>
+                          <div
+                            id={`cantidad-${item.id}`}
+                            className="mt-2 flex h-[100px] items-stretch border border-[var(--cs-line)] bg-white"
+                          >
                             <button
                               type="button"
                               onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
                               disabled={item.cantidad <= 1}
                               aria-label={`Reducir cantidad de ${item.nombre}`}
-                              className="flex w-11 items-center justify-center text-xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex w-14 items-center justify-center text-2xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               −
                             </button>
                             <span
                               aria-live="polite"
-                              className="flex min-w-14 items-center justify-center border-x border-[var(--cs-line)] px-3 text-base font-semibold"
+                              className="flex min-w-0 flex-1 items-center justify-center border-x border-[var(--cs-line)] px-3 text-xl font-semibold"
                             >
                               {item.cantidad}
                             </span>
@@ -440,58 +478,30 @@ export default function CotizarWorkspaceClient({
                               onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
                               disabled={item.cantidad >= 99}
                               aria-label={`Aumentar cantidad de ${item.nombre}`}
-                              className="flex w-11 items-center justify-center text-xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex w-14 items-center justify-center text-2xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               +
                             </button>
                           </div>
-
                           <button
                             type="button"
                             onClick={() => borrarItem(item.id)}
-                            className="text-[10px] font-bold uppercase tracking-[.1em] text-[var(--cs-muted)] hover:text-[var(--cs-danger)]"
+                            className="mt-3 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--cs-muted)] hover:text-[var(--cs-danger)]"
                           >
-                            Quitar
+                            Quitar sistema
                           </button>
                         </div>
                       </div>
 
-                      <div className="mt-7 grid gap-4 sm:grid-cols-2">
-                        {(["anchoCm", "altoCm"] as const).map((campo) => (
-                          <div key={campo}>
-                            <label
-                              className="cs-label"
-                              htmlFor={`${campo}-${item.id}`}
-                            >
-                              {campo === "anchoCm" ? "Ancho (cm)" : "Alto (cm)"}
-                            </label>
-                            <input
-                              id={`${campo}-${item.id}`}
-                              inputMode="decimal"
-                              value={estado[campo]}
-                              onChange={(event) =>
-                                actualizarMedida(item.id, campo, event.target.value)
-                              }
-                              className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]"
-                              placeholder={campo === "anchoCm" ? "Ej. 180" : "Ej. 220"}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
                       <div className="mt-5 border-t border-[var(--cs-line)] pt-5">
                         {estado.calculando ? (
-                          <p className="text-xs text-[var(--cs-muted)]">
-                            Validando medidas...
-                          </p>
+                          <p className="text-xs text-[var(--cs-muted)]">Validando medidas...</p>
                         ) : estado.fabricable === null ? (
                           <p className="text-xs text-[var(--cs-muted)]">
                             Las medidas se validan automáticamente.
                           </p>
                         ) : estado.fabricable ? (
-                          <p className="text-sm font-medium text-[var(--cs-ink)]">
-                            {estado.mensaje}
-                          </p>
+                          <p className="text-sm font-medium text-[var(--cs-ink)]">{estado.mensaje}</p>
                         ) : (
                           <div className="border border-[var(--cs-danger)]/30 bg-[var(--cs-danger)]/5 p-4">
                             <p className="text-xs font-bold uppercase tracking-[.1em] text-[var(--cs-danger)]">
@@ -585,33 +595,23 @@ export default function CotizarWorkspaceClient({
               )}
 
               {errorEnvio && (
-                <p className="mt-3 text-xs leading-5 text-[var(--cs-danger)]">
-                  {errorEnvio}
-                </p>
+                <p className="mt-3 text-xs leading-5 text-[var(--cs-danger)]">{errorEnvio}</p>
               )}
 
               <div className="mt-7 border-y border-[var(--cs-line)] py-5">
                 <div className="flex items-end justify-between gap-4">
-                  <span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">
-                    Productos
-                  </span>
+                  <span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Productos</span>
                   <strong className="text-sm">${total.toLocaleString("es-AR")}</strong>
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-4">
-                  <span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">
-                    Envío
-                  </span>
+                  <span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Envío</span>
                   <strong className="text-sm">
                     {shippingCost ? `$${shippingCost.toLocaleString("es-AR")}` : "A calcular"}
                   </strong>
                 </div>
                 <div className="mt-5 flex items-end justify-between gap-4 border-t border-[var(--cs-line)] pt-5">
-                  <span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">
-                    Total estimado
-                  </span>
-                  <strong className="cs-display text-3xl">
-                    ${totalEstimado.toLocaleString("es-AR")}
-                  </strong>
+                  <span className="text-xs uppercase tracking-[.1em] text-[var(--cs-muted)]">Total estimado</span>
+                  <strong className="cs-display text-3xl">${totalEstimado.toLocaleString("es-AR")}</strong>
                 </div>
               </div>
 
