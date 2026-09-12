@@ -417,7 +417,7 @@ export default function CotizarWorkspaceClient({
                         </p>
                       </div>
 
-                      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_180px]">
+                      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_150px]">
                         <div>
                           <label className="cs-label" htmlFor={`anchoCm-${item.id}`}>
                             Ancho (cm)
@@ -429,7 +429,7 @@ export default function CotizarWorkspaceClient({
                             onChange={(event) =>
                               actualizarMedida(item.id, "anchoCm", event.target.value)
                             }
-                            className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]"
+                            className="mt-2 h-14 w-full border border-[var(--cs-line)] bg-white px-4 text-sm outline-none focus:border-[var(--cs-gold)]"
                             placeholder="Ej. 180"
                           />
                         </div>
@@ -445,7 +445,7 @@ export default function CotizarWorkspaceClient({
                             onChange={(event) =>
                               actualizarMedida(item.id, "altoCm", event.target.value)
                             }
-                            className="mt-2 w-full border border-[var(--cs-line)] bg-white p-3 text-sm outline-none focus:border-[var(--cs-gold)]"
+                            className="mt-2 h-14 w-full border border-[var(--cs-line)] bg-white px-4 text-sm outline-none focus:border-[var(--cs-gold)]"
                             placeholder="Ej. 220"
                           />
                         </div>
@@ -456,20 +456,20 @@ export default function CotizarWorkspaceClient({
                           </label>
                           <div
                             id={`cantidad-${item.id}`}
-                            className="mt-2 flex h-[100px] items-stretch border border-[var(--cs-line)] bg-white"
+                            className="mt-2 flex h-14 items-stretch border border-[var(--cs-line)] bg-white"
                           >
                             <button
                               type="button"
                               onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
                               disabled={item.cantidad <= 1}
                               aria-label={`Reducir cantidad de ${item.nombre}`}
-                              className="flex w-14 items-center justify-center text-2xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex w-11 items-center justify-center text-xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               −
                             </button>
                             <span
                               aria-live="polite"
-                              className="flex min-w-0 flex-1 items-center justify-center border-x border-[var(--cs-line)] px-3 text-xl font-semibold"
+                              className="flex min-w-0 flex-1 items-center justify-center border-x border-[var(--cs-line)] px-2 text-lg font-semibold"
                             >
                               {item.cantidad}
                             </span>
@@ -478,7 +478,7 @@ export default function CotizarWorkspaceClient({
                               onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
                               disabled={item.cantidad >= 99}
                               aria-label={`Aumentar cantidad de ${item.nombre}`}
-                              className="flex w-14 items-center justify-center text-2xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex w-11 items-center justify-center text-xl font-light text-[var(--cs-muted)] transition hover:bg-[var(--cs-paper)] disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               +
                             </button>
@@ -486,9 +486,9 @@ export default function CotizarWorkspaceClient({
                           <button
                             type="button"
                             onClick={() => borrarItem(item.id)}
-                            className="mt-3 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--cs-muted)] hover:text-[var(--cs-danger)]"
+                            className="mt-3 text-[10px] font-medium uppercase tracking-[.08em] text-[var(--cs-muted)] transition hover:text-[var(--cs-danger)]"
                           >
-                            Quitar sistema
+                            Eliminar
                           </button>
                         </div>
                       </div>
